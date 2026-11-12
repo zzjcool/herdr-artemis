@@ -7,14 +7,12 @@
 //
 // It reads like the photo it belongs to: a cream corona ring around a black
 // Moon (the mission mark, pulsing while agents work), the wordmark, where the
-// keyboard is, then one tally per agent status and the UTC clock — the time the
-// picture was taken in is stamped on it.
+// keyboard is, and the UTC clock — the time the picture was taken in is stamped
+// on it. Agent counts live in the agents list, not here.
 
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { agents, focused, home, run, settings, spaces, theme, window } from "herdr";
-
-const STATUSES = ["working", "blocked", "done", "idle"];
 
 // A press inside the bar must not become a window drag.
 const own = (el) => el.on_mouse_down("left", (_e, cx) => cx.stopPropagation());
@@ -63,38 +61,6 @@ export default class ArtemisBar extends View {
           .items_center()
           .justify_center()
           .child(div().size(5).rounded(3).bg("#05080c")));  // the Moon's dark face: an opaque core, not a hole
-  }
-
-  tally(t, status, list) {
-    const n = list.filter((a) => a.status === status).length;
-    const first = list.find((a) => a.status === status);
-    const on = n > 0;
-    const color = on ? t[status] : t.dim;
-    return own(
-      div()
-        .id(`tally-${status}`)
-        .flex_none()
-        .h(19)
-        .px(on ? 6 : 3)
-        .mr(on ? 3 : 4)
-        .rounded(5)
-        .flex()
-        .items_center()
-        .gap(5)
-        .bg(on ? `${color}1f` : "#00000000")
-        .text_color(color)
-        .when(on && Boolean(first), (el) =>
-          el.cursor_pointer()
-            .hover((s) => s.bg(`${color}33`).text_color(t.foreground))
-            .on_click(() => run("agent.focus", { terminal: first.address })))
-        .child(
-          div()
-            .size(5)
-            .rounded(3)
-            .bg(color)
-            .when(status === "blocked", (el) => el.loop("opacity", { from: 0.3, to: 1, period: 900 }))
-            .when(status === "working", (el) => el.loop("opacity", { from: 0.45, to: 1, period: 2000 })))
-        .when(on, (el) => el.child(div().text_size(10.5).child(String(n)))));
   }
 
   // Where the system draws no traffic lights, the bar draws its own.
@@ -152,7 +118,6 @@ export default class ArtemisBar extends View {
           .when(Boolean(tab) && tab.name !== String(tab.index), (e) =>
             e.child(div().flex_none().ml(8).max_w(200).truncate().text_color(t.dim).child(tab.name))))
       .child(div().flex_1())
-      .children(STATUSES.map((status) => this.tally(t, status, list)))
       .child(
         own(
           h_flex()

@@ -11,7 +11,7 @@
   "colors": {
     "canvas": "#030304",
     "background": "#0e162133",
-    "chrome": "#070b1240",
+    "chrome": "#00000000",
     "surface": "#00000000",
     "popover": "#0a1017",
     "raised": "#0d141c",
@@ -50,7 +50,7 @@
     "ansi15": "#edf2f7"
   },
   "background": {
-    "image": "mods/artemis-head/photo.jpg",
+    "image": "backgrounds/artemis.jpg",
     "fit": "contain"
   },
   "padding": 14,
@@ -87,16 +87,6 @@
           "max": 420,
           "children": [
             {
-              "id": "plate",
-              "type": "block",
-              "size": {
-                "px": 104
-              },
-              "content": {
-                "mod": "artemis-head"
-              }
-            },
-            {
               "id": "spaces",
               "type": "block",
               "size": {
@@ -119,12 +109,12 @@
               }
             }
           ],
-          "background": "chrome",
+          "background": "#070b1240",
           "border": {
             "width": 1,
             "color": "#ffffff1f"
           },
-          "radius": 14
+          "radius": 0
         },
         {
           "id": "work",
@@ -142,12 +132,12 @@
               "content": {
                 "mod": "tabs"
               },
-              "background": "chrome",
+              "background": "#070b1240",
               "border": {
                 "width": 1,
                 "color": "#ffffff1f"
               },
-              "radius": 12
+              "radius": 0
             },
             {
               "id": "work-body",
@@ -214,12 +204,12 @@
                       ]
                     }
                   ],
-                  "background": "chrome",
+                  "background": "#070b1240",
                   "border": {
                     "width": 1,
                     "color": "#ffffff1f"
                   },
-                  "radius": 14
+                  "radius": 0
                 }
               ]
             },
@@ -232,12 +222,12 @@
               "content": {
                 "mod": "workspace-status"
               },
-              "background": "chrome",
+              "background": "#070b1240",
               "border": {
                 "width": 1,
                 "color": "#ffffff1f"
               },
-              "radius": 10
+              "radius": 0
             }
           ],
           "padding": [

@@ -21,11 +21,11 @@ text.
 - the whole frame, never cropped: in a 16:10 window it fills the height with 90 px of the same near-black at
   either side (at 2880 px wide); in a tall window it is a band across the middle
   with the same near-black above and below;
-- the photograph's title, date, frame number and credit printed at the head of the
-  rail — click it for the full caption, credit and source;
+- square plates throughout: the rail, the tab strip, the pane and the status bar are
+  right-angled sheets of smoke, so nothing rounds a corner the photograph does not;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
-- two mods, neither of which binds a key, runs a program or reaches the network.
+- one mod (`artemis-bar`) that binds no key, runs no program and reaches no network.
 
 **Install.** Copy `layouts/` and `mods/` into `~/.config/herdr-app/`, check the two
 mods, then switch:
@@ -38,11 +38,11 @@ herdr-app status
 ```
 
 **[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
-the node tree, both mods, the plate, and the one thing this layout cannot do.
+the node tree, the bar mod, the picture, and the one thing this layout cannot do.
 
 The photograph is `art002e015967` from
 [nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US government
 work, public domain, credit NASA / JSC, imply no endorsement. The layout ships the
-frame re-encoded at 4096 px wide (`mods/artemis-head/photo.jpg`, 1.0 MB) — the same
+frame re-encoded at 4096 px wide (`backgrounds/artemis.jpg`, 1.0 MB) — the same
 pixels, no crop, no grade. The lists in the preview are blurred on purpose; they
 hold a real machine's own spaces.
