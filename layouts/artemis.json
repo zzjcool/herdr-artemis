@@ -4,24 +4,24 @@
   "titlebar": "none",
   "traffic_lights": [
     14,
-    11
+    13
   ],
   "preview": "layouts/artemis.svg",
   "theme": "graphite",
   "colors": {
-    "canvas": "#04060a",
-    "background": "#05070cf7",
-    "chrome": "#080b11",
-    "surface": "#0a0e15",
+    "canvas": "#04060b",
+    "background": "#060a11f2",
+    "chrome": "#080d14d0",
+    "surface": "#070b12f2",
     "popover": "#0b1018",
-    "raised": "#121a24",
-    "hover": "#16202c",
-    "selected": "#1d2836",
-    "border": "#1c2532",
+    "raised": "#111a24",
+    "hover": "#ffffff14",
+    "selected": "#ffffff1f",
+    "border": "#ffffff24",
     "input": "#28313f",
-    "foreground": "#e6ebf2",
-    "muted": "#9aa6b4",
-    "dim": "#5f6a78",
+    "foreground": "#e7ecf3",
+    "muted": "#b7c2cd",
+    "dim": "#828d9c",
     "accent": "#e9d8b9",
     "accent_foreground": "#0a0c11",
     "solid": "#e9d8b9",
@@ -50,20 +50,19 @@
     "ansi15": "#edf2f7"
   },
   "background": {
-    "gradient": [
-      "#080b12",
-      "#0a0908"
-    ],
-    "angle": 168
+    "image": "mods/artemis-head/sky.jpg",
+    "fit": "cover"
   },
+  "padding": [
+    28,
+    0
+  ],
+  "gap": 0,
   "terminal_padding": [
     14,
-    18
+    17
   ],
-  "divider": {
-    "width": 1,
-    "color": "#ffffff0f"
-  },
+  "terminal_opacity": 1,
   "children": [
     {
       "id": "bar",
@@ -79,10 +78,7 @@
     {
       "id": "body",
       "type": "row",
-      "divider": {
-        "width": 1,
-        "color": "#ffffff0f"
-      },
+      "gap": 0,
       "children": [
         {
           "id": "sidebar",
@@ -92,19 +88,19 @@
           },
           "min": 220,
           "max": 420,
-          "divider": {
-            "width": 1,
-            "color": "#ffffff0f"
-          },
           "children": [
             {
               "id": "plate",
               "type": "block",
               "size": {
-                "px": 132
+                "px": 400
               },
               "content": {
                 "mod": "artemis-head"
+              },
+              "background": {
+                "image": "mods/artemis-head/rail.jpg",
+                "fit": "cover"
               }
             },
             {
@@ -129,18 +125,12 @@
                 "mod": "agents"
               }
             }
-          ],
-          "background": {
-            "gradient": [
-              "#0c121a",
-              "#080b11"
-            ],
-            "angle": 180
-          }
+          ]
         },
         {
           "id": "work",
           "type": "column",
+          "gap": 12,
           "resizable": false,
           "children": [
             {
@@ -149,6 +139,14 @@
               "size": {
                 "px": 38
               },
+              "window_drag": true,
+              "background": "chrome",
+              "border": {
+                "width": 1,
+                "color": "border"
+              },
+              "radius": 12,
+              "shadow": "sm",
               "content": {
                 "mod": "tabs"
               }
@@ -156,7 +154,6 @@
             {
               "id": "work-body",
               "type": "row",
-              "padding": 12,
               "gap": 10,
               "children": [
                 {
@@ -166,13 +163,14 @@
                     "tab": "active",
                     "pane": {
                       "gap": 10,
-                      "radius": 8,
+                      "radius": 14,
                       "background": "background",
                       "lone": true,
                       "border": {
                         "width": 1,
                         "color": "border"
                       },
+                      "shadow": "lg",
                       "focus": {
                         "width": 1,
                         "color": "accent"
@@ -181,7 +179,7 @@
                         "content": {
                           "mod": "pane"
                         },
-                        "height": 28,
+                        "height": 30,
                         "position": "top",
                         "reveal": "always"
                       }
@@ -197,6 +195,12 @@
                   },
                   "min": 280,
                   "max": 900,
+                  "border": {
+                    "width": 1,
+                    "color": "border"
+                  },
+                  "radius": 14,
+                  "shadow": "lg",
                   "children": [
                     {
                       "id": "panel-body",
@@ -231,8 +235,19 @@
               },
               "content": {
                 "mod": "workspace-status"
-              }
+              },
+              "background": "chrome",
+              "border": {
+                "width": 1,
+                "color": "border"
+              },
+              "radius": 10,
+              "shadow": "sm"
             }
+          ],
+          "padding": [
+            10,
+            20
           ]
         }
       ]
