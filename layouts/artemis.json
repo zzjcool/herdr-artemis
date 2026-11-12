@@ -1,0 +1,235 @@
+{
+  "id": "root",
+  "type": "column",
+  "titlebar": "none",
+  "traffic_lights": [
+    14,
+    12
+  ],
+  "preview": "layouts/artemis.svg",
+  "theme": "graphite",
+  "colors": {
+    "canvas": "#04060a",
+    "background": "#05070c",
+    "chrome": "#080b11",
+    "surface": "#0a0e15",
+    "popover": "#0b1018",
+    "raised": "#101620",
+    "hover": "#161e29",
+    "selected": "#1d2836",
+    "border": "#1a2230",
+    "input": "#28313f",
+    "foreground": "#e2e8f0",
+    "muted": "#94a1b0",
+    "dim": "#5d6877",
+    "accent": "#e9d8b9",
+    "accent_foreground": "#0a0c11",
+    "solid": "#e9d8b9",
+    "solid_foreground": "#0a0c11",
+    "selection": "#243243",
+    "working": "#8bb3d9",
+    "blocked": "#e08a6c",
+    "done": "#d8c8a6",
+    "idle": "#5d6877",
+    "unknown": "#47525f",
+    "ansi0": "#121821",
+    "ansi1": "#dd7a63",
+    "ansi2": "#a3bd97",
+    "ansi3": "#e3c88d",
+    "ansi4": "#7fa6cf",
+    "ansi5": "#c39ecf",
+    "ansi6": "#83bfc0",
+    "ansi7": "#c9d2dc",
+    "ansi8": "#3b4655",
+    "ansi9": "#ef9781",
+    "ansi10": "#bcd4ab",
+    "ansi11": "#f2dba3",
+    "ansi12": "#9cc0e6",
+    "ansi13": "#d8b5e2",
+    "ansi14": "#9ed8d6",
+    "ansi15": "#edf2f7"
+  },
+  "background": {
+    "gradient": [
+      "#070a11",
+      "#0b0908"
+    ],
+    "angle": 165
+  },
+  "terminal_padding": [
+    12,
+    14
+  ],
+  "divider": {
+    "width": 1,
+    "color": "border"
+  },
+  "children": [
+    {
+      "id": "bar",
+      "type": "block",
+      "size": {
+        "px": 38
+      },
+      "window_drag": true,
+      "content": {
+        "mod": "artemis-bar"
+      }
+    },
+    {
+      "id": "body",
+      "type": "row",
+      "divider": {
+        "width": 1,
+        "color": "border"
+      },
+      "children": [
+        {
+          "id": "sidebar",
+          "type": "column",
+          "size": {
+            "px": 302
+          },
+          "min": 220,
+          "max": 460,
+          "background": "canvas",
+          "children": [
+            {
+              "id": "plaque",
+              "type": "block",
+              "size": {
+                "px": 300
+              },
+              "content": {
+                "mod": "artemis-plaque"
+              },
+              "background": {
+                "image": "mods/artemis-plaque/plaque.jpg",
+                "fit": "cover"
+              }
+            },
+            {
+              "id": "spaces",
+              "type": "block",
+              "size": {
+                "weight": 1
+              },
+              "min": 90,
+              "content": {
+                "mod": "spaces"
+              }
+            },
+            {
+              "id": "agents",
+              "type": "block",
+              "size": {
+                "weight": 1
+              },
+              "min": 90,
+              "content": {
+                "mod": "agents"
+              }
+            }
+          ]
+        },
+        {
+          "id": "work",
+          "type": "column",
+          "resizable": false,
+          "children": [
+            {
+              "id": "tabs",
+              "type": "block",
+              "size": {
+                "px": 40
+              },
+              "content": {
+                "mod": "tabs"
+              }
+            },
+            {
+              "id": "work-body",
+              "type": "row",
+              "padding": 8,
+              "gap": 8,
+              "children": [
+                {
+                  "id": "main",
+                  "type": "block",
+                  "content": {
+                    "tab": "active",
+                    "pane": {
+                      "gap": 8,
+                      "radius": 10,
+                      "background": "background",
+                      "lone": true,
+                      "border": {
+                        "width": 1,
+                        "color": "border"
+                      },
+                      "focus": {
+                        "width": 1,
+                        "color": "accent"
+                      },
+                      "header": {
+                        "content": {
+                          "mod": "pane"
+                        },
+                        "height": 30,
+                        "position": "top",
+                        "reveal": "always"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "panel",
+                  "type": "column",
+                  "hidden": true,
+                  "size": {
+                    "px": 360
+                  },
+                  "min": 280,
+                  "max": 900,
+                  "children": [
+                    {
+                      "id": "panel-body",
+                      "type": "stack",
+                      "active": "files",
+                      "children": [
+                        {
+                          "id": "files",
+                          "type": "block",
+                          "content": {
+                            "mod": "files"
+                          }
+                        },
+                        {
+                          "id": "changes",
+                          "type": "block",
+                          "content": {
+                            "mod": "changes"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "status",
+              "type": "block",
+              "size": {
+                "px": 26
+              },
+              "content": {
+                "mod": "workspace-status"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
