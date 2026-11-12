@@ -41,7 +41,7 @@
   <rect x="282" y="3.45" width="36" height="1.5" rx="0.75" fill="#828d9c" fill-opacity="0.78"/>
 
   <!-- the rail: one glass plate laid on the photograph, nothing opaque inside it -->
-  <rect x="0.11" y="8.51" width="64.68" height="185.18" rx="0" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
+  <rect x="0.11" y="8.51" width="64.68" height="185.18" rx="3.11" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
 
 
   <!-- the spaces list: a header with a plus, four rows of dot + name + pips -->
@@ -84,7 +84,7 @@
   <circle cx="58.95" cy="99.2" r="0.6" fill="#5f6a78"/>
 
   <!-- the tabs: one keyed tab at the left, plus, Files and Changes at the right -->
-  <rect x="67.2" y="10.6" width="248.4" height="8.4" rx="0" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
+  <rect x="67.2" y="10.6" width="248.4" height="8.4" rx="2.67" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
   <rect x="68.8" y="11.6" width="27" height="5.8" rx="1.6" fill="#ffffff" fill-opacity="0.075"/>
   <rect x="70.4" y="12.5" width="2.4" height="1.5" rx="0.45" fill="#e9d8b9"/>
   <rect x="70.4" y="14.2" width="2.4" height="0.9" rx="0.3" fill="#8bb3d9" fill-opacity="0.85"/>
@@ -95,8 +95,8 @@
   <rect x="296" y="14.15" width="17.6" height="1.3" rx="0.65" fill="#828d9c" fill-opacity="0.85"/>
 
   <!-- the terminal: no fill at all, so the Moon's disc reads through the pane -->
-  <rect x="67.2" y="21.6" width="248.4" height="6.7" fill="#0e1621" fill-opacity="0.2"/>
-  <rect x="67.2" y="21.6" width="248.4" height="163.4" rx="0" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
+  <path d="M70.31,21.6 H312.49 A3.11,3.11 0 0 1 315.6,24.71 V28.3 H67.2 V24.71 A3.11,3.11 0 0 1 70.31,21.6 Z" fill="#0e1621" fill-opacity="0.2"/>
+  <rect x="67.2" y="21.6" width="248.4" height="163.4" rx="3.11" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
   <rect x="69.6" y="21.95" width="243.6" height="0.35" fill="#e9d8b9" fill-opacity="0.9"/>
   <circle cx="70.9" cy="24.95" r="0.5" fill="#8bb3d9" fill-opacity="0.9"/>
   <rect x="73" y="24.35" width="9" height="1.2" rx="0.6" fill="#828d9c" fill-opacity="0.85"/>
@@ -124,7 +124,7 @@
   </g>
 
   <!-- the status strip: the machine, the branch, an agent status dot, the palette hint -->
-  <rect x="67.2" y="187" width="248.4" height="6.8" rx="0" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
+  <rect x="67.2" y="187" width="248.4" height="6.8" rx="2.22" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
   <rect x="70.2" y="189.6" width="2.2" height="1.6" rx="0.3" fill="none" stroke="#828d9c" stroke-width="0.28"/>
   <rect x="70.9" y="191.2" width="0.8" height="0.3" fill="#828d9c"/>
   <rect x="73.8" y="189.75" width="14" height="1.3" rx="0.65" fill="#828d9c" fill-opacity="0.9"/>

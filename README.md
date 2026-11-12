@@ -21,8 +21,10 @@ text.
 - the whole frame, never cropped: in a 16:10 window it fills the height with 90 px of the same near-black at
   either side (at 2880 px wide); in a tall window it is a band across the middle
   with the same near-black above and below;
-- square plates throughout: the rail, the tab strip, the pane and the status bar are
-  right-angled sheets of smoke, so nothing rounds a corner the photograph does not;
+- rounded plates throughout: the rail, the tab strip, the pane and the status bar are
+  sheets of smoke with a 14 px corner (12 on the tab strip, 10 on the status bar), and the
+  frame clips its header, its divider and the terminal's paper to the curve, so no square
+  corner pokes out of it;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
 - one mod (`artemis-bar`) that binds no key, starts no program, and only asks Herdr to
