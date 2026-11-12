@@ -25,10 +25,12 @@ text.
   right-angled sheets of smoke, so nothing rounds a corner the photograph does not;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
-- **a system monitor at the right end of the status bar**: this computer's CPU and memory, a
-  number and a twelve-tick sparkline each, sampled every three seconds from the two programs
-  macOS installs for it (`iostat`, `vm_stat`), run read-only — no shell, no network, and nothing
-  drawn at all where those programs are missing;
+- **a system monitor at the right end of the status bar**: the CPU and memory of the machine the
+  shown space lives on — this computer, or the host that space's terminals run on, read over the
+  connection Herdr already keeps to it (`iostat`/`vm_stat` on macOS, `/proc` on Linux, all
+  read-only), a number and a twelve-tick sparkline each, sampled every three seconds; switch to a
+  space on another machine and the readings become that machine's. The mod never runs ssh and holds
+  no key, and a machine that cannot answer draws nothing at all;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
   minimise, maximise or close the window; neither it nor the monitor touches the network.
 
