@@ -215,19 +215,41 @@
             },
             {
               "id": "status",
-              "type": "block",
+              "type": "row",
               "size": {
                 "px": 26
               },
-              "content": {
-                "mod": "workspace-status"
-              },
+              "gap": 0,
+              "resizable": false,
               "background": "#070b1240",
               "border": {
                 "width": 1,
                 "color": "#ffffff1f"
               },
-              "radius": 0
+              "radius": 0,
+              "children": [
+                {
+                  "id": "status-workspace",
+                  "type": "block",
+                  "size": {
+                    "weight": 1
+                  },
+                  "content": {
+                    "mod": "workspace-status"
+                  }
+                },
+                {
+                  "id": "status-sysmon",
+                  "type": "block",
+                  "size": {
+                    "px": 308
+                  },
+                  "min": 308,
+                  "content": {
+                    "mod": "sysmon"
+                  }
+                }
+              ]
             }
           ],
           "padding": [

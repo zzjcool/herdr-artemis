@@ -11,6 +11,10 @@ behind the whole interface — and a terminal's paper is 25 % smoke, so the Moon
 craters and the corona read straight through the text. Every plate is a right angle: nothing
 rounds a corner the photograph does not.
 
+The status bar's right end carries a small system monitor: this computer's CPU and memory, a number
+and a twelve-tick sparkline each, sampled every three seconds from `iostat` and `vm_stat` — the two
+programs macOS ships for it, run read-only, no shell, no network.
+
 ![Artemis](preview.png)
 
 ## What you see
@@ -47,7 +51,7 @@ top of the window. Every plate that *should* be visible names the literal `#070b
 |---|---|
 | `sidebar` (the rail) | 292 px, `min` 220, `max` 420 |
 | `tabs` | 38 px tall, `window_drag: true` |
-| `status` | 26 px tall |
+| `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 308 px |
 | `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` |
 
 **The pane** is a bare frame: it inherits the 20 % tint, gets a `1px` `#ffffff1f` border (the
@@ -81,7 +85,23 @@ insets the whole body from the window), holding, top to bottom:
 **Work column** — `gap` 12 and `padding` `[10, 20]`, so the tabs, the pane and the status bar sit
 10 px in from the top and bottom and 20 px in from the rail and the window edge: `tabs` 38 px with
 the shipped `tabs` mod → `work-body` row, `gap` 10 → the pane area and the hidden panel →
-`status` 26 px, the shipped `workspace-status`.
+`status` 26 px: `workspace-status` (weight 1) plus the monitor, 308 px.
+
+**The status bar is a row, not a block**, since its right end holds a second mod: `workspace-status`
+at `weight: 1` takes every pixel the monitor does not, so the palette hint stays where the shipped
+mod puts it — just left of the seam. The row is `resizable: false`: the seam is a 1 px rule, not a
+drag handle, and the monitor's 308 px cannot be moved by a stray press. The 25 % smoke and the
+1 px `#ffffff1f` rule are on the row; the seam is a 1 px rule the monitor draws on its own left edge,
+and both halves draw the same 1 px rule along their top edge, so the bar keeps the two thin layers
+it always had.
+
+**System monitor — the bar's right end.** `CPU`, the percentage, a twelve-tick strip; a 1 px rule;
+`MEM`, `23.1/32G`, a strip of the same twelve ticks. Labels are 9 px `dim` `#828d9c`; numbers are
+11.5 px in `settings().font_family` (else JetBrains Mono) in `muted` `#b7c2cd`, right-aligned in
+fixed boxes — 34 px for the percentage, 58 px for the memory — so `%` and `G` stand in the same
+column on every sample and the strips never shift. A strip is twelve 2 px ticks 2 px apart, 1–11 px
+tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in `accent` `#e9d8b9`, so the
+right edge of a strip is “now”. Nothing rounds, nothing fills: the ticks sit straight on the plate.
 
 **Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
 `#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`
@@ -108,13 +128,33 @@ render exactly like no agent at all:
 
 Counts are not repeated in the bar: the `agents` list in the rail is where they belong.
 
+**The monitor reads this computer, every three seconds.** `iostat -c 2 -w 1` prints two samples one
+second apart; the first is the average since boot, the second is the last second, so only the last
+line is read — and a single-line answer is refused rather than passed off as “now” — and CPU is
+`us + sy` from it. `vm_stat` is read in the same breath, and memory in use is `(active + wired +
+compressor) × page size` over `hw.memsize`, asked once (and asked again if that fails). All three
+ship with macOS, all are read-only queries, and a sample costs about 12 ms of CPU; the monitor
+redraws once per sample and not between them.
+
+**The first strip is flat.** The first sample fills all twelve ticks with itself, so a fresh window
+shows a line at today's level instead of twelve claims of history it never saw; after that, one
+tick per sample with the oldest dropping off the left — 36 s of history.
+
+**Nothing here warns.** A lean machine is a line of short ticks, a busy one a comb: that is the
+whole reading, and no colour changes with load, because the mark stays the bar's only status
+carrier. The monitor also says nothing about the space's machine — the label at the other end of
+the bar does that, and these numbers are always this computer's. On a machine without `iostat` and
+`vm_stat` it draws nothing at all. A failed sample is not painted over: the numbers drop to `dim`
+and the newest tick loses its cream, so nothing on the bar claims to be “now” while the reading is
+stale; three failures in a row and it keeps trying once a minute instead of every tick.
+
 **Clicks and hovers**
 
 - The mod stops the left mouse-down on its clock and its window buttons, so a window drag never
   starts from them; the bar's and the tab strip's `window_drag` take every other press.
-- Nothing in the bar is clickable — the mark is a lamp, not a button. Everything else — the space
-  and agent lists, the tab bar, the pane headers, the status bar, the panel — behaves as in
-  Herdr's own layouts, because it is those shipped mods.
+- Nothing in the bar is clickable — the mark is a lamp, not a button, and the monitor's block takes
+  no press at all. Everything else — the space and agent lists, the tab bar, the pane headers,
+  `workspace-status`, the panel — behaves as in Herdr's own layouts, because it is those shipped mods.
 
 **What moves**
 
@@ -122,12 +162,14 @@ Counts are not repeated in the bar: the `agents` list in the rail is where they 
   `window_drag: true`. On Linux and Windows the bar's own buttons minimise, maximise/restore and
   close it.
 - Dragging the rail's right edge resizes it 220–420 px.
-- The only motion in the layout is the mark's pulse and the clock: one tick a second via
-  `cx.timer.every(1000)`, notifying only when the formatted string changed. No JS redraws for the
-  pulse — it is a native GPUI `.loop` on opacity.
+- The motion in the layout: the mark's pulse (native GPUI `.loop` on opacity, no JS redraws), the
+  clock (one tick a second via `cx.timer.every(1000)`, notifying only when the formatted string
+  changed) and the monitor's strips (one tick and one redraw per sample, every three seconds).
 
-**Keys** — the layout binds nothing and leaves the person's `keys.json` alone; the one mod binds
-no key, runs no `exec` or `hc`, and touches no network.
+**Keys** — the layout binds nothing and leaves the person's `keys.json` alone; neither mod binds a
+key. The bar mod runs no program and asks Herdr only to minimise, maximise or close the window; the
+monitor runs `iostat`, `vm_stat` and a `sysctl -n hw.memsize` — once, unless it has to ask again —
+and nothing else. Neither one touches the network.
 
 ## Built from
 
@@ -136,6 +178,7 @@ layouts/artemis.json          the window
 layouts/artemis.svg           the picture Settings shows for this layout (root "preview")
 backgrounds/artemis.jpg       the ground: the whole NASA frame, re-encoded
 mods/artemis-bar/             main.js, mod.json {"place":"none","title":"Artemis bar"}
+mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
 
 **The node tree** (root is a `column`):
@@ -159,8 +202,10 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
     │ └ panel column 340  min 280  max 900  hidden true  background "#070b1240"
     │          border {1,"#ffffff1f"}
     │   └ panel-body  stack  active "files"  children: files, changes
-    └ status     block 26  background "#070b1240"  border {1,"#ffffff1f"}
-                           mod workspace-status
+    └ status       row 26  gap 0  resizable false  background "#070b1240"
+                           border {1,"#ffffff1f"}
+      ├ status-workspace  block weight 1  mod workspace-status
+      └ status-sysmon     block 308  min 308  mod sysmon  (paints no fill)
 ```
 
 The pane frame is exactly
@@ -178,6 +223,24 @@ UTC. Every control is wrapped in `.on_mouse_down("left", (_e, cx) => cx.stopProp
 mark is three nested `div()`s: `size(16).rounded(8).border(1)` at `${color}38`, inside it
 `size(11).rounded(6).border(1)` at the status colour, inside that `size(5).rounded(3).bg("#05080c")`
 — an opaque core, because `t.background` is translucent and the Moon's face must not be a hole.
+
+**`mods/sysmon`** (no `props`) is one
+`h_flex().size_full().items_center().justify_end().overflow_hidden()` with `.gap(10).px(12)` and
+`.border_t(1).border_l(1)` in `theme().border` — no background, so the plate stays the row's and the
+bar reads as one sheet with a 1 px seam, and no overflow, so a squeezed block clips its own content
+rather than painting over its neighbour. It imports `View` and `div` from
+`gpui-kit`, `h_flex` from `gpui-base`, and `exec`, `settings`, `theme` from `herdr`. Its programs:
+`sysctl -n hw.memsize` (asked on the first sample, asked again if it failed), then
+`iostat -c 2 -w 1` and `vm_stat` together on a `cx.timer.every(3000, …)` — the first sample fired at
+once by `cx.timer.after(1, …)` — with a `busy` flag so a slow sample never stacks, and a `missing`
+counter that, after three failures in a row, waits 20 ticks (63 s to the next try). Each metric is a
+label (`w(24)`, 9 px, `dim`), a value (`h_flex().w(34 | 58).justify_end()` around a 11.5 px `div()`
+in the person's mono face, `muted` while the reading is live and `dim` once it is not) and a strip:
+`h_flex().gap(2).h(11).items_end()` over twelve `div().w(2)` ticks whose height is
+`1 + round(pct / 10)` px, the newest one `accent` (`unknown` when stale) and the rest `idle`. Between
+the two, a `div().w(1).h(11).bg(t.border)`. Parsing is three small regexes and one split: the last of
+two data lines of `iostat`, and `vm_stat`'s `Pages active/wired down/occupied by compressor` plus the
+page size in its header.
 
 **Shipped mods used:** `spaces`, `agents`, `tabs`, `pane` (pane headers), `workspace-status`,
 `files`, `changes`. Nothing needs `keys.json`, `programs.json`, `settings.json` or a theme file:
@@ -229,6 +292,10 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   `content.pane`, not on the node: setting the node's `radius` to 0 leaves the frame rounded.
   If you want round plates back, square the header first (`header` off, or `reveal: "hover"`, or a
   custom header mod that clips).
+- **The app rewrites its own copy of this picture.** After a click, the app folder's
+  `layouts/artemis.svg` came back with its `rx` values set to the clicked radii (`3.11` = 14 px at
+  4.5 px per unit) — the same pass that writes click radii into `layouts/artemis.json`. The repo's
+  hand-drawn file is the one that ships; don't copy the app's rewrite back.
 - **`colors.background` is a 20 % tint, not a solid.** It keeps printed text readable over the
   corona without hiding the photograph; the four plates double it to 25 %. A new mod inside the
   work column sits on that same thin smoke, so give any new panel its own fill.
@@ -243,6 +310,40 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   buttons (`window().buttons`), the bar draws its own at the right instead.
 - **The `files` / `changes` panel starts hidden** and is reachable from the tab bar; it is 340 px
   (`min` 280, `max` 900) and takes its width from the pane area.
+- **The monitor's memory figure is not `top`'s.** `top` prints `31G used … 252M unused`, which is the
+  total minus free; a healthy Mac reads 99 % that way forever, because file cache counts as used.
+  The monitor adds the pages actually in use — `(active + wired + compressor) × page size` — which
+  is `23.1/32G` on the same Mac at the same moment. Don't “correct” it to `total − free`.
+- **`iostat`'s first line is the average since boot.** `-c 2 -w 1` prints two samples a second
+  apart; only the second is the reading. A build that takes the first line reports ~20 % on this
+  Mac and barely moves. Take the last data line and its last six fields (`us sy id 1m 5m 15m`),
+  whatever disks stand before them.
+- **`vm_stat`'s page size is 16384 on Apple Silicon and 4096 on Intel** — read it from the header
+  (`page size of N bytes`); assuming 16384 reports memory 4× off on an Intel Mac.
+- **The block is 308 px for 306 px of content.** 1 px border + 2 × 12 px padding + 281 px
+  (CPU `24 + 7 + 34 + 7 + 46`, then `10 + 1 + 10`, then MEM `24 + 7 + 58 + 7 + 46`) = 306; the two
+  spare pixels are `justify_end`'s slack, so nothing is stretched. Change `TICKS` or a `width`
+  and the layout's `px` must change with it — a short block clips the CPU label on the left, not
+  on the right.
+- **The `status` row is `resizable: false`, and that is load-bearing.** Rows are draggable at their
+  boundaries by default, so without it the seam is a handle that can squeeze the monitor under its
+  306 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
+  `min: 308` as a second guard.
+- **`herdr-app check` proves little about this mod.** `render()` returns an empty `div()` until a
+  sample has landed, so the check exercises `init`'s two timers and that empty block — and no program
+  at all, since the samples start on the timer; the numbers and their strips are built only in the
+  window. (This is how a leftover variable name got past the check and into a bar that would not
+  re-render.)
+- **`iostat` sleeps one second per sample, and that is the cost.** `top -l 2 -n 0 -s 1` measures the
+  same interval for ~0.7 s of CPU; `iostat` spends ~10 ms and `vm_stat` ~2 ms. Don't swap it for
+  `top`, and don't poll faster than the bar can be read.
+- **Three failures, then one try a minute.** On a machine that has neither program an every-tick
+  retry would spawn a failing `exec` for as long as the window lives: `missing` sets `wait` to 20
+  ticks after the third failure in a row (63 s to the next try), so a machine without the programs
+  costs almost nothing and a transient timeout still recovers. A failed sample also paints nothing as
+  “now” — `live` false means `dim` numbers and no cream tick.
+- **The monitor paints no fill of its own.** The plate, its rule and its smoke belong to the
+  `status` row. Give the mod a `.bg(...)` and the bar becomes two plates with a seam down it.
 - **The photograph is public domain; keep the credit.** The layout ships the frame re-encoded,
   not the 8256×5504 original; both are NASA/US-government works. Credit NASA / JSC, imply no
   endorsement.
@@ -253,6 +354,7 @@ Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`, then:
 
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar           # exit 0
+herdr-app check ~/.config/herdr-app/mods/sysmon                # exit 0
 herdr-app do layout.switch --name artemis
 herdr-app status                                               # "layout": "artemis", "errors": []
 herdr-app shot /tmp/artemis.png
@@ -271,6 +373,13 @@ herdr-app shot /tmp/artemis.png
   corona read through), pi's page shows it too, and the blocks pi paints itself stay opaque;
 - an agent that starts working makes the mark pulse; blocking turns it coral and pulses it
   faster; both stop when nothing is working or blocked;
+- the status bar's right end reads `CPU 33% ▁▁…` and `MEM 23.1/32G ▁▁…`: two numbers in the bar's
+  mono face with `%` and `G` in fixed columns, and two twelve-tick strips whose newest tick is cream
+  and the rest grey-blue, updating every three seconds without the layout moving;
+- `yes > /dev/null` in a few shells drives the CPU into the 90s and the strip stands up into a comb
+  over a few samples, then falls back when they stop; memory barely moves;
+- the seam between `workspace-status` and the monitor is one 1 px rule and cannot be dragged; the
+  bar's top edge is still two thin layers;
 - dragging the bar moves the window, dragging the rail's edge resizes it, and no press that
   starts on a control ever does either;
 - the tab bar's Files button opens a 340 px panel on the right and nothing else moves;
