@@ -56,10 +56,10 @@
   "padding": 14,
   "gap": 10,
   "terminal_padding": [
-    14,
-    17
+    20,
+    24
   ],
-  "terminal_opacity": 0.72,
+  "terminal_opacity": 0.25,
   "children": [
     {
       "id": "bar",

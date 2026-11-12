@@ -14,7 +14,7 @@ the picture. The accent and the four agent status colours are sampled from the p
 ## What you see
 
 **The window.** Root `padding` `14`, `gap` `10`, `titlebar: none`, traffic lights at `[14, 13]`,
-theme `graphite` with the `colors` map below, terminal padding `[14, 17]`, `terminal_opacity` `0.72`,
+theme `graphite` with the `colors` map below, terminal padding `[20, 24]`, `terminal_opacity` `0.25`,
 and `background` `{ "image": "mods/artemis-head/photo.jpg", "fit": "contain" }`.
 
 **The ground.** The photograph, whole: 3:2, no crop, no grade, no vignette, no fade. `contain`
@@ -28,9 +28,11 @@ ring around it, and Saturn and Mars as two small dots to the right of the disc.
 
 **Smoked glass.** `colors.background` is `#0e162133` — 20 % of a dark blue-grey — so every node's
 default fill is a thin smoke over the photograph rather than a hole or a slab, and a terminal's own
-paper takes that colour's RGB (`#0e1621`) with `terminal_opacity` `0.72` blending it toward the
-picture behind it: a shell pane reads (20, 27, 37) over the frame's black and the corona's glow
-shows through where its ring passes behind the pane. The five surfaces below are the sturdier
+paper takes that colour's RGB (`#0e1621`) with `terminal_opacity` `0.25` blending it toward the
+picture behind it: a shell pane reads (4, 6, 8) over the frame's black, and the Moon's limb, the
+craters, the corona and the stars show through it, so the terminal is written on the photograph
+rather than in a box on it. `terminal_padding` `[20, 24]` leaves the picture as a mount inside
+each pane, which is where the glass reads even over the frame's black. The five surfaces below are the sturdier
 version of the same smoke, `chrome` `#070b1240` (25 % of `#070b12`) with a `1px` border of
 `#ffffff1f`:
 
@@ -151,7 +153,7 @@ mods/artemis-head/            main.js, mod.json {"place":"none","title":"Artemis
 ```
 root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors,
               background {image "mods/artemis-head/photo.jpg", fit "contain"},
-              padding 14, gap 10, terminal_padding [14,17], terminal_opacity 0.72,
+              padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0.25,
               preview "layouts/artemis.svg"
 ├ bar         block 38   window_drag  mod artemis-bar     (no fill; the mod paints chrome)
 └ body        row        gap 0
@@ -231,20 +233,23 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   background is transparent (`colors.background`), so a shell pane shows the photograph behind
   its text — but `pi`, `vim`, `less`, `htop` fill their cells, and that pane is opaque no matter
   what the layout says. The terminal is not "not see-through" because of the layout.
-- **`terminal_opacity` 0.72 makes a terminal's *paper* see-through, and only its paper.** Measured
+- **`terminal_opacity` 0.25 makes a terminal's *paper* see-through, and only its paper.** Measured
   on this build: a cell the program leaves unpainted (a shell's background) is composited with
   what is behind it — the photograph — and its **glyphs keep full brightness** (a crop of the
-  same text measures max 212 at `1.0` and at `0.4`); a cell the program paints itself (a colour
-  swatch, a TUI's panels) is untouched at every opacity. So the smoke is real for shells and
-  absent for full-screen programs, which paint every cell: `pi`, `vim`, `less` and `htop` panes
-  stay opaque no matter what this number says.
+  same text measures max 212 at `1.0` and at `0.4`); a cell whose background the program paints
+  itself (a colour swatch, `vim`'s status line, pi's tool blocks) is untouched at every opacity.
+  So a shell's whole paper blends, and so does the page of a full-screen program between its
+  painted panels — pi's own empty paper takes the picture, only its green tool blocks stay opaque.
 - **Nodes carry a 20 % smoke, not a solid.** `colors.background` `#0e162133` is what keeps printed
   text readable over the corona without hiding the photograph; the five glass surfaces double it
   to 25 % `chrome`. A new mod inside the work column sits on that same thin smoke.
 - **A terminal's paper ignores the alpha of `colors.background`.** The terminal paints the RGB
   (`#0e1621`) and `terminal_opacity` blends the whole paper with what is behind it — so the paper
   has to be a colour that looks like glass on its own, and `terminal_opacity` is the knob for how
-  much picture comes through.
+  much picture comes through. 0.25 is where the frame still reads as a photograph (its 99.9th
+  percentile luminance is 101 of 255, so the worst backdrop a glyph ever sits on is ~80 and cream
+  text on it is ~4:1) while the pane keeps a faint floor; 0 leaves no floor at all and 0.5 and
+  above hides half the picture behind smoke.
 - **Menu surfaces are deliberately opaque** (`popover` `#0a1017`, `raised` `#0d141c`, `input`
   `#0c131a`): a menu over a photograph needs a floor, and `solid` is the opaque accent for
   filled buttons.
@@ -287,8 +292,8 @@ herdr-app shot /tmp/artemis.png
   the credit with the frame number on the right;
 - the bar shows `ARTEMIS` `II`, the active space with its branch and folder, the four tallies and
   a UTC clock that advances every second;
-- a pane running a shell shows the picture behind its text at full strength, and a pane running
-  a full-screen TUI does not — that is the TUI painting every cell, not the layout;
+- a pane's paper shows the picture behind it — a shell's entire surface, and pi's page around its
+  tool blocks; the blocks themselves stay opaque, because they paint their own background;
 - with two panes open, the one holding the keyboard has a cream hairline and the other a grey
   one, and both have a 30 px header with split / zoom / close;
 - an agent that starts working pulses the bar's mark and lights the `working` tally blue;

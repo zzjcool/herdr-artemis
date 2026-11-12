@@ -12,8 +12,9 @@ layout paints the frame's own border colour — measured off the picture, `#0303
 so the letterbox is not a bar, it is the photograph running out of stars. Nothing
 in the layout paints a background unless it is smoked glass (`#070b1240`, 25 %) or a
 20 % tint (`#0e162133`), so the sky, the disc and its corona are behind the rail, the
-tabs and the panes rather than in a picture block of their own — and a shell pane's
-paper blends with the picture behind it, so the corona's glow passes through it.
+tabs and the panes rather than in a picture block of their own — and a pane's paper
+is 25 % smoke, so the Moon's limb, its craters and the corona read straight through the
+text.
 
 **What it gives you**
 
