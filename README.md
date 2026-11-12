@@ -25,14 +25,15 @@ text.
   right-angled sheets of smoke, so nothing rounds a corner the photograph does not;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
-- one mod (`artemis-bar`) that binds no key, runs no program and reaches no network.
+- one mod (`artemis-bar`) that binds no key, starts no program, and only asks Herdr to
+  minimise, maximise or close the window; it reaches no network.
 
-**Install.** Copy `layouts/` and `mods/` into `~/.config/herdr-app/`, check the two
-mods, then switch:
+**Install.** Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`
+(`backgrounds/artemis.jpg` is the ground — without it the window has no photograph),
+check the mod, then switch:
 
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar
-herdr-app check ~/.config/herdr-app/mods/artemis-head
 herdr-app do layout.switch --name artemis
 herdr-app status
 ```

@@ -151,7 +151,7 @@
                     "tab": "active",
                     "pane": {
                       "gap": 10,
-                      "radius": 14,
+                      "radius": 0,
                       "lone": true,
                       "border": {
                         "width": 1,

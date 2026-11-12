@@ -5,8 +5,8 @@ A Herdr layout whose ground is one NASA photograph: ART002E015967, *The Planets 
 from the Moon. The whole frame, uncropped and ungraded, sits behind the entire window with
 `fit: "contain"`; where the window is a different shape the layout paints the frame's own
 border colour (`#030304`), so the empty part of the window is not a bar but the photograph
-running out of stars. No plate is filled: the rail, the tab strip, the status bar and the
-pane are 25 % smoke and the default is a 20 % tint, so the sky, the disc and its corona sit
+running out of stars. Nothing is filled flat: the rail, the tab strip, the status bar and the
+panel are 25 % smoke, the pane and everything else take a 20 % tint, so the sky, the disc and its corona sit
 behind the whole interface — and a terminal's paper is 25 % smoke, so the Moon's limb, its
 craters and the corona read straight through the text. Every plate is a right angle: nothing
 rounds a corner the photograph does not.
@@ -36,9 +36,9 @@ the picture behind it: a shell pane reads (4, 6, 8) over the frame's black, and 
 the craters, the corona and the stars show through it, so the terminal is written on the
 photograph rather than in a box on it. `terminal_padding` `[20, 24]` leaves the picture as a
 mount inside each pane, which is where the glass reads even over the frame's black. `chrome` is
-`#00000000` on purpose: the shipped `pane` header paints `chrome`, and that is what lets the
-header's title and buttons float on the picture instead of filling a slab across the top of the
-pane.
+`#00000000` on purpose: the bar paints `chrome` (`mods/artemis-bar/main.js`, `.bg(t.chrome)`), so a
+transparent `chrome` is what keeps the bar's type on the photograph instead of on a band across the
+top of the window. Every plate that *should* be visible names the literal `#070b1240` instead.
 
 **The four plates** carry the sturdier version of the same smoke — the literal `#070b1240`
 (25 % of `#070b12`) with a `1px` border of `#ffffff1f`, and **no radius**:
@@ -50,31 +50,38 @@ pane.
 | `status` | 26 px tall |
 | `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` |
 
-**The pane** is a bare frame: it inherits the 20 % smoke, gets a `1px` `#ffffff1f` border (the
-pane holding the keyboard takes `accent` `#e9d8b9` instead), radius 0, and the shipped `pane`
-header 30 px at the top, always visible: program icon, title, folder, split / zoom / close.
+**The pane** is a bare frame: it inherits the 20 % tint, gets a `1px` `#ffffff1f` border (the
+pane holding the keyboard takes `accent` `#e9d8b9` instead) and radius 0. The shipped `pane` header
+sits 30 px at the top, always visible: program icon, title, folder, the agent's status (spinner,
+`Needs you` while blocked, a dot when done), and — on hover only — split-right, split-down, zoom
+and close. The header paints `theme().background`, i.e. a second 20 % tint, plus a 1 px `border`
+rule: two thin layers rather than a slab, which is what keeps it from fighting the photograph.
 
 **Top bar — 38 px, full width, `window_drag: true`, nothing painted.** Its type sits straight on
 the photograph. One row at 11.5 px, left to right:
 
-- **the eclipse mark, 16 px:** a 1 px outer ring at `#e9d8b938` (accent at 22 %), a 1 px
-  `#e9d8b9` rim at 11 px, and a 5 px Moon disc in `#05080c`.
+- **the eclipse mark, 16 px:** a 1 px outer ring at `${color}38` (22 % of the status colour),
+  a 1 px rim in the status colour at 11 px, and a 5 px Moon disc in `#05080c`.
 - `ARTEMIS` at 10.5 px `font_semibold` in `#e7ecf3`, then `II` at 9 px in `accent` `#e9d8b9`.
 - a `│` separator at `${muted}44`, 11 px margin each side, then the active space's name at 12 px
-  `foreground` (max 240 px), its git branch (180 px), the focused terminal's folder leaf (160 px)
-  and the tab's name (200 px) at 11.5 px `dim` `#828d9c` — each truncated.
+  `foreground` (max 240 px) and its git branch (180 px); then, only when they differ from the space,
+  the focused terminal's folder leaf (160 px, `~` at home) and the tab's name (200 px, only when the
+  tab is named) at 11.5 px `dim` `#828d9c` — each truncated.
 - a flexible spacer, then the **UTC clock**, `HH:MM:SS` at 11 px in `settings().font_family` (else
   JetBrains Mono), with `UTC` at 9 px `dim`, 5 px to its left.
 - On Linux and Windows only (`window().buttons`): minimise, maximise/restore, close — 30 px
   each, glyphs in `dim`.
 
-**Rail — 292 px.** One plate, `padding` 14, holding, top to bottom:
+**Rail — 292 px.** One plate, its children flush to its edge (the 14 px the root keeps is what
+insets the whole body from the window), holding, top to bottom:
 
 1. **`spaces`** — the shipped `spaces` mod, `weight: 1`, `min` 90.
 2. **`agents`** — the shipped `agents` mod, `weight: 1`, `min` 90.
 
-**Work column** — `gap` 12: `tabs` 38 px with the shipped `tabs` mod → `work-body` row, `gap` 10 →
-the pane area and the hidden panel → `status` 26 px, the shipped `workspace-status`.
+**Work column** — `gap` 12 and `padding` `[10, 20]`, so the tabs, the pane and the status bar sit
+10 px in from the top and bottom and 20 px in from the rail and the window edge: `tabs` 38 px with
+the shipped `tabs` mod → `work-body` row, `gap` 10 → the pane area and the hidden panel →
+`status` 26 px, the shipped `workspace-status`.
 
 **Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
 `#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`
@@ -89,21 +96,22 @@ the pane area and the hidden panel → `status` 26 px, the shipped `workspace-st
 
 ## How it behaves
 
-**The mark, and nothing else, carries agent status.** The bar's 16 px eclipse takes the most
-urgent status present, in the order `blocked` > `working` > `done` > `idle`:
+**The mark, and nothing else, carries agent status.** The bar's 16 px eclipse reads two facts —
+whether any agent is `blocked` and whether any is `working` — and nothing else; `done` and `idle`
+render exactly like no agent at all:
 
 | status | the mark |
 |---|---|
 | `blocked` | ring and rim coral `#e08a6c`, pulsing 0.35 → 1 every 900 ms |
 | `working` | ring and rim cream `#e9d8b9`, pulsing 0.5 → 1 every 2400 ms |
-| `done`, `idle`, none | ring and rim cream `#e9d8b9`, steady |
+| `done`, `idle`, none | ring and rim cream `#e9d8b9`, steady (indistinguishable) |
 
 Counts are not repeated in the bar: the `agents` list in the rail is where they belong.
 
 **Clicks and hovers**
 
-- Both mods stop the left mouse-down on their controls, so a window drag never starts from a
-  button; the bar's and the tab strip's `window_drag` take every other press.
+- The mod stops the left mouse-down on its clock and its window buttons, so a window drag never
+  starts from them; the bar's and the tab strip's `window_drag` take every other press.
 - Nothing in the bar is clickable — the mark is a lamp, not a button. Everything else — the space
   and agent lists, the tab bar, the pane headers, the status bar, the panel — behaves as in
   Herdr's own layouts, because it is those shipped mods.
@@ -115,8 +123,8 @@ Counts are not repeated in the bar: the `agents` list in the rail is where they 
   close it.
 - Dragging the rail's right edge resizes it 220–420 px.
 - The only motion in the layout is the mark's pulse and the clock: one tick a second via
-  `cx.timer.every(1000)`, notifying only when a digit changed. No JS redraws for the pulse — it
-  is a native GPUI `.loop` on opacity.
+  `cx.timer.every(1000)`, notifying only when the formatted string changed. No JS redraws for the
+  pulse — it is a native GPUI `.loop` on opacity.
 
 **Keys** — the layout binds nothing and leaves the person's `keys.json` alone; the one mod binds
 no key, runs no `exec` or `hc`, and touches no network.
@@ -143,7 +151,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
   │ │                    background "#070b1240"  border {1,"#ffffff1f"}
   │ ├ spaces  block weight 1  min 90  mod spaces   (no fill)
   │ └ agents  block weight 1  min 90  mod agents   (no fill)
-  └ work      column gap 12  resizable false
+  └ work      column gap 12  padding [10,20]  resizable false
     ├ tabs       block 38  window_drag  background "#070b1240"
     │                    border {1,"#ffffff1f"}  mod tabs
     ├ work-body  row  gap 10
@@ -156,15 +164,16 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 ```
 
 The pane frame is exactly
-`{"gap":10,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`
-— no `radius`, no `background`, so it keeps the layout's 20 % smoke and its square corners.
+`{"gap":10,"radius":0,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`
+— no `background`, so it keeps the layout's 20 % tint, and `radius` 0 like every plate: the frame
+must be stated in `content.pane`, not on the node.
 
 **`mods/artemis-bar`** (no `props`) is one `h_flex().size_full()`: `.pl(mac ? 78 : 12).pr(4)`,
 `.text_size(11.5)`, `.overflow_hidden()`, and `.bg(t.chrome)` — which is transparent, so the row
 paints nothing and its type sits on the photograph. It imports `View` and `div` from `gpui-kit`,
-`h_flex` from `gpui-base`, and `agents`, `focused`, `home`, `settings`, `spaces`, `theme`,
-`window` from `herdr`; it runs `window.minimize` / `window.maximize` / `window.close` where the
-system draws no buttons. The clock is `cx.timer.every(1000, …)` over `new Date()` formatted as
+`h_flex` from `gpui-base`, and `agents`, `focused`, `home`, `run`, `settings`, `spaces`,
+`theme`, `window` from `herdr`; it runs `window.minimize` / `window.maximize` / `window.close` where
+the system draws no buttons, and that is every `run` in the mod. The clock is `cx.timer.every(1000, …)` over `new Date()` formatted as
 UTC. Every control is wrapped in `.on_mouse_down("left", (_e, cx) => cx.stopPropagation())`. The
 mark is three nested `div()`s: `size(16).rounded(8).border(1)` at `${color}38`, inside it
 `size(11).rounded(6).border(1)` at the status colour, inside that `size(5).rounded(3).bg("#05080c")`
@@ -211,14 +220,15 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   0.25 is where the frame still reads as a photograph (worst backdrop a glyph ever sits on is
   ~80, so cream text on it is ~4:1) while the pane keeps a faint floor; `0` leaves no floor at
   all, and `0.5` and above hides half the picture behind smoke.
-- **`chrome` is `#00000000` on purpose.** The shipped `pane` header paints `theme().chrome`; with
-  a visible chrome the header is a filled rectangle whose square top corners fight a rounded
-  pane frame, which is exactly the misalignment this layout removes. Everything that should be
-  visible names the literal `#070b1240` instead.
+- **`chrome` is `#00000000` on purpose.** The bar paints `theme().chrome`, so a transparent chrome
+  is what keeps its type on the photograph; the four plates name the literal `#070b1240` instead.
+  Don't set `chrome` to the plate colour: the bar would grow a band across the top of the window.
 - **Every plate has radius 0, for the same reason.** A rounded frame around a terminal whose
   content, header and divider are all square leaves a sliver of square corner poking into the
-  curve. If you want round plates back, square the header first (`header: {…}` off, or a custom
-  header mod that clips).
+  curve — that is the bug this layout exists to avoid. The pane's radius lives in
+  `content.pane`, not on the node: setting the node's `radius` to 0 leaves the frame rounded.
+  If you want round plates back, square the header first (`header` off, or `reveal: "hover"`, or a
+  custom header mod that clips).
 - **`colors.background` is a 20 % tint, not a solid.** It keeps printed text readable over the
   corona without hiding the photograph; the four plates double it to 25 %. A new mod inside the
   work column sits on that same thin smoke, so give any new panel its own fill.
@@ -227,8 +237,9 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   buttons.
 - **`spaces` and `agents` need `weight: 1` with `min: 90`**, or one of them takes the rail's
   height and the other is left with nothing.
-- **The bar keeps 78 px clear on the left on macOS** (`pl(mac ? 78 : 12)`) for the traffic lights
-  at `[14, 13]`; drop that and the mark sits under the window buttons. Where the system draws no
+- **The bar keeps 78 px clear on the left on macOS** (`pl(mac ? 78 : 12)`; 12 in fullscreen, which
+  draws no traffic lights) for them at `[14, 13]`; drop it and the mark sits under the window
+  buttons. Where the system draws no
   buttons (`window().buttons`), the bar draws its own at the right instead.
 - **The `files` / `changes` panel starts hidden** and is reachable from the tab bar; it is 340 px
   (`min` 280, `max` 900) and takes its width from the pane area.
@@ -253,9 +264,9 @@ herdr-app shot /tmp/artemis.png
   bars above and below (or either side) blend into the frame's own edge with no line to see;
 - the rail opens with `Spaces` at once — no title block, no credit; then `Agents`;
 - every plate is a right angle: rail, tab strip, pane and status bar meet their neighbours
-  squarely, and the pane's header title and buttons sit on the photograph with no slab behind them;
-- the bar shows the eclipse mark, `ARTEMIS` `II`, the active space with its branch and folder, and
-  a UTC clock that advances every second — and nothing else;
+  squarely, and the pane's header is two thin layers (20 % tint + a 1 px rule), not a slab;
+- the bar shows the eclipse mark, `ARTEMIS` `II`, the active space with its branch (plus a folder and
+  a named tab when they differ), and a UTC clock that advances every second — and nothing else;
 - a pane running a shell shows the picture behind its text (the Moon's limb, its craters and the
   corona read through), pi's page shows it too, and the blocks pi paints itself stay opaque;
 - an agent that starts working makes the mark pulse; blocking turns it coral and pulses it
