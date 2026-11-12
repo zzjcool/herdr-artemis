@@ -12,7 +12,7 @@
 
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { agents, focused, home, run, spaces, theme, window } from "herdr";
+import { agents, focused, home, run, settings, spaces, theme, window } from "herdr";
 
 const STATUSES = ["working", "blocked", "done", "idle"];
 
@@ -39,20 +39,30 @@ export default class ArtemisBar extends View {
     });
   }
 
-  // The eclipse: a 1 px cream corona around a dark Moon, 15 px across.
+  // Corona, rim, Moon: the sidebar's mark at bar size, 16 px across.
   eclipse(t, blocked, busy) {
+    const color = blocked ? t.blocked : t.accent;
     return div()
       .flex_none()
-      .size(15)
+      .size(16)
       .rounded(8)
       .border(1)
-      .border_color(blocked ? t.blocked : t.accent)
+      .border_color(`${color}38`)
       .flex()
       .items_center()
       .justify_center()
       .when(blocked, (el) => el.loop("opacity", { from: 0.35, to: 1, period: 900 }))
       .when(!blocked && busy, (el) => el.loop("opacity", { from: 0.5, to: 1, period: 2400 }))
-      .child(div().size(8).rounded(4).bg(t.canvas));
+      .child(
+        div()
+          .size(11)
+          .rounded(6)
+          .border(1)
+          .border_color(color)
+          .flex()
+          .items_center()
+          .justify_center()
+          .child(div().size(5).rounded(3).bg(t.background)));
   }
 
   tally(t, status, list) {
@@ -65,8 +75,8 @@ export default class ArtemisBar extends View {
         .id(`tally-${status}`)
         .flex_none()
         .h(19)
-        .px(6)
-        .mr(3)
+        .px(on ? 6 : 3)
+        .mr(on ? 3 : 4)
         .rounded(5)
         .flex()
         .items_center()
@@ -84,7 +94,7 @@ export default class ArtemisBar extends View {
             .bg(color)
             .when(status === "blocked", (el) => el.loop("opacity", { from: 0.3, to: 1, period: 900 }))
             .when(status === "working", (el) => el.loop("opacity", { from: 0.45, to: 1, period: 2000 })))
-        .child(div().text_size(10.5).child(String(n))));
+        .when(on, (el) => el.child(div().text_size(10.5).child(String(n)))));
   }
 
   // Where the system draws no traffic lights, the bar draws its own.
@@ -117,7 +127,7 @@ export default class ArtemisBar extends View {
     const here = leaf(focused()?.cwd);
     const blocked = list.some((a) => a.status === "blocked");
     const busy = list.some((a) => a.status === "working");
-    const sep = () => div().flex_none().mx(11).text_color(t.border).child("│");
+    const sep = () => div().flex_none().mx(11).text_color(`${t.muted}44`).child("│");
 
     return h_flex()
       .id("artemis-bar")
@@ -153,7 +163,7 @@ export default class ArtemisBar extends View {
             .gap(5)
             .items_center()
             .text_color(t.muted)
-            .child(div().text_size(11.5).child(this.clock))
+            .child(div().font_family(settings().font_family ?? "JetBrains Mono").text_size(11).child(this.clock))
             .child(div().text_size(9).text_color(t.dim).child("UTC"))))
       .when(Boolean(w?.buttons), (el) =>
         el.child(this.windowButton(t, "wb-min", "–", "window.minimize"))
