@@ -10,9 +10,10 @@ The photograph is the window's ground, whole: the entire 3:2 frame, uncropped an
 ungraded, placed with `fit: "contain"`. Where the window is a different shape the
 layout paints the frame's own border colour — measured off the picture, `#030304` —
 so the letterbox is not a bar, it is the photograph running out of stars. Nothing
-in the layout paints a background unless it is smoked glass (`#070b1240`, 25 %), so
-the sky, the disc and its corona are behind the rail, the tabs and the panes rather
-than in a picture block of their own.
+in the layout paints a background unless it is smoked glass (`#070b1240`, 25 %) or a
+20 % tint (`#0e162133`), so the sky, the disc and its corona are behind the rail, the
+tabs and the panes rather than in a picture block of their own — and a shell pane's
+paper blends with the picture behind it, so the corona's glow passes through it.
 
 **What it gives you**
 

@@ -10,7 +10,7 @@
   "theme": "graphite",
   "colors": {
     "canvas": "#030304",
-    "background": "#00000000",
+    "background": "#0e162133",
     "chrome": "#070b1240",
     "surface": "#00000000",
     "popover": "#0a1017",
@@ -59,7 +59,7 @@
     14,
     17
   ],
-  "terminal_opacity": 1,
+  "terminal_opacity": 0.72,
   "children": [
     {
       "id": "bar",
@@ -162,7 +162,6 @@
                     "pane": {
                       "gap": 10,
                       "radius": 14,
-                      "background": "#00000000",
                       "lone": true,
                       "border": {
                         "width": 1,

@@ -14,7 +14,7 @@ the picture. The accent and the four agent status colours are sampled from the p
 ## What you see
 
 **The window.** Root `padding` `14`, `gap` `10`, `titlebar: none`, traffic lights at `[14, 13]`,
-theme `graphite` with the `colors` map below, terminal padding `[14, 17]`, `terminal_opacity` `1`,
+theme `graphite` with the `colors` map below, terminal padding `[14, 17]`, `terminal_opacity` `0.72`,
 and `background` `{ "image": "mods/artemis-head/photo.jpg", "fit": "contain" }`.
 
 **The ground.** The photograph, whole: 3:2, no crop, no grade, no vignette, no fade. `contain`
@@ -26,8 +26,13 @@ colour and there is no seam to see. What the photograph contributes: its near-bl
 luminance 11 of 255) with the frame's own stars, the Moon's disc in its left third, the corona's
 ring around it, and Saturn and Mars as two small dots to the right of the disc.
 
-**Smoked glass.** Every layout node is transparent unless it is one of these five surfaces, and
-they all use `chrome` `#070b1240` (25 % of `#070b12`) with a `1px` border of `#ffffff1f`:
+**Smoked glass.** `colors.background` is `#0e162133` — 20 % of a dark blue-grey — so every node's
+default fill is a thin smoke over the photograph rather than a hole or a slab, and a terminal's own
+paper takes that colour's RGB (`#0e1621`) with `terminal_opacity` `0.72` blending it toward the
+picture behind it: a shell pane reads (20, 27, 37) over the frame's black and the corona's glow
+shows through where its ring passes behind the pane. The five surfaces below are the sturdier
+version of the same smoke, `chrome` `#070b1240` (25 % of `#070b12`) with a `1px` border of
+`#ffffff1f`:
 
 | surface | radius | size |
 |---|---|---|
@@ -79,7 +84,7 @@ close. `lone: true`, so a single pane fills the area. Terminal padding 14 px ver
 horizontal.
 
 **Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
-`#00000000`, `surface` `#00000000`, `chrome` `#070b1240`, `popover` `#0a1017`, `raised`
+`#0e162133`, `surface` `#00000000`, `chrome` `#070b1240`, `popover` `#0a1017`, `raised`
 `#0d141c`, `input` `#0c131a`, `hover` `#ffffff0d`, `selected` `#ffffff14`, `border`
 `#ffffff1f`, `foreground` `#e7ecf3`, `muted` `#b7c2cd`, `dim` `#828d9c`, `accent` `#e9d8b9`,
 `accent_foreground` `#0a0c11`, `solid` `#111820`, `solid_foreground` `#0a0f15`, `selection`
@@ -146,7 +151,7 @@ mods/artemis-head/            main.js, mod.json {"place":"none","title":"Artemis
 ```
 root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors,
               background {image "mods/artemis-head/photo.jpg", fit "contain"},
-              padding 14, gap 10, terminal_padding [14,17], terminal_opacity 1,
+              padding 14, gap 10, terminal_padding [14,17], terminal_opacity 0.72,
               preview "layouts/artemis.svg"
 ├ bar         block 38   window_drag  mod artemis-bar     (no fill; the mod paints chrome)
 └ body        row        gap 0
@@ -168,7 +173,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 ```
 
 The pane frame is exactly
-`{"gap":10,"radius":14,"background":"#00000000","lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`.
+`{"gap":10,"radius":14,"background":"#0e162133","lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`.
 
 **`mods/artemis-bar`** (no `props`) is one `h_flex().size_full()`: `.bg(t.chrome)`,
 `.pl(mac ? 78 : 12).pr(4)`, `.text_size(11.5)`, `.overflow_hidden()`. It imports `View` and `div`
@@ -226,12 +231,20 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   background is transparent (`colors.background`), so a shell pane shows the photograph behind
   its text — but `pi`, `vim`, `less`, `htop` fill their cells, and that pane is opaque no matter
   what the layout says. The terminal is not "not see-through" because of the layout.
-- **`terminal_opacity` below 1 dims the text, not just the background.** It is left at `1`: the
-  transparency comes from the fills, and dimming a terminal to see more picture costs legibility
-  for as long as the window is open.
-- **Everything is transparent by default, so anything that prints must bring its own floor.**
-  The bar paints `chrome` (25 %); the rail's own 25 % plate is what keeps `spaces` and `agents`
-  readable over the corona. A new mod inside the work column would sit directly on the disc.
+- **`terminal_opacity` 0.72 makes a terminal's *paper* see-through, and only its paper.** Measured
+  on this build: a cell the program leaves unpainted (a shell's background) is composited with
+  what is behind it — the photograph — and its **glyphs keep full brightness** (a crop of the
+  same text measures max 212 at `1.0` and at `0.4`); a cell the program paints itself (a colour
+  swatch, a TUI's panels) is untouched at every opacity. So the smoke is real for shells and
+  absent for full-screen programs, which paint every cell: `pi`, `vim`, `less` and `htop` panes
+  stay opaque no matter what this number says.
+- **Nodes carry a 20 % smoke, not a solid.** `colors.background` `#0e162133` is what keeps printed
+  text readable over the corona without hiding the photograph; the five glass surfaces double it
+  to 25 % `chrome`. A new mod inside the work column sits on that same thin smoke.
+- **A terminal's paper ignores the alpha of `colors.background`.** The terminal paints the RGB
+  (`#0e1621`) and `terminal_opacity` blends the whole paper with what is behind it — so the paper
+  has to be a colour that looks like glass on its own, and `terminal_opacity` is the knob for how
+  much picture comes through.
 - **Menu surfaces are deliberately opaque** (`popover` `#0a1017`, `raised` `#0d141c`, `input`
   `#0c131a`): a menu over a photograph needs a floor, and `solid` is the opaque accent for
   filled buttons.
@@ -274,8 +287,8 @@ herdr-app shot /tmp/artemis.png
   the credit with the frame number on the right;
 - the bar shows `ARTEMIS` `II`, the active space with its branch and folder, the four tallies and
   a UTC clock that advances every second;
-- a pane running a shell shows the picture behind its text, and a pane running a full-screen TUI
-  does not — that is the TUI, not the layout;
+- a pane running a shell shows the picture behind its text at full strength, and a pane running
+  a full-screen TUI does not — that is the TUI painting every cell, not the layout;
 - with two panes open, the one holding the keyboard has a cream hairline and the other a grey
   one, and both have a 30 px header with split / zoom / close;
 - an agent that starts working pulses the bar's mark and lights the `working` tally blue;
