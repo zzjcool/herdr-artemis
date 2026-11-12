@@ -1,12 +1,11 @@
-// artemis-head — the mission plate, printed where the rail's sky fades out.
+// artemis-head — the mission plate: what the photograph is, printed at the
+// head of the rail.
 //
-// The photograph is the block's business: `plate` carries
-//   "background": { "image": "mods/artemis-head/rail.jpg", "fit": "cover" }
-// and the JPEG itself dissolves into the window's black at its top and bottom
-// edges, so the band bleeds out of the layout instead of sitting in it. This
-// mod draws only what must stay legible: the title, the orbit line, the
-// credit and the frame number, plus the crew's status — the most urgent
-// agent, in the colours the bar's tallies use.
+// The block paints nothing; the window's ground is the photograph itself
+// (root "background", fit "contain"), so the type sits straight on it. This
+// mod adds only what the picture cannot say for itself: kicker, title, the
+// orbit line, the credit, the frame number, and the most urgent agent's
+// status in the colours the bar's tallies use.
 
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
@@ -60,13 +59,13 @@ export default class ArtemisHead extends View {
         this.w = w;
         cx.notify();
       })
-      // the sky, then the plate: the type sits on the band's own dark foot
-      .child(div().flex_1())
+      // the plate sits at the head of the rail, on the photograph
       .child(
         v_flex()
           .id("head-plate")
           .w_full()
           .px(14)
+          .pt(14)
           .pb(12)
           .gap(1)
           .child(

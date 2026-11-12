@@ -62,7 +62,7 @@ export default class ArtemisBar extends View {
           .flex()
           .items_center()
           .justify_center()
-          .child(div().size(5).rounded(3).bg(t.background)));
+          .child(div().size(5).rounded(3).bg("#05080c")));  // the Moon's dark face: an opaque core, not a hole
   }
 
   tally(t, status, list) {

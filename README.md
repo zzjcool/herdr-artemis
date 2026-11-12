@@ -1,33 +1,32 @@
 # Artemis
 
-A Herdr layout cut from one NASA photograph: ART002E015967, *The Planets Shine
+A Herdr layout built on one NASA photograph: ART002E015967, *The Planets Shine
 Bright* — the Artemis II crew's view of the Moon eclipsing the Sun from Orion,
 6 April 2026, 4,067 mi from the Moon.
 
 ![Artemis](preview.png)
 
-Two plates are composed from the frame and from nothing else. `sky.jpg` is the
-window's ground: it shows in the window's own band, and the top 66 px of the
-window are open sky with the photograph's own stars, where a 38 px bar carries
-the mission mark, the active space and four agent tallies. `rail.jpg` is the
-limb that runs down the top of the left rail — corona to its left, the Moon's
-dark face to its right — fading into the black as it goes, with the title, date,
-frame number and credit printed where it fades out. Terminals are dark plates on
-what is left; the palette is sampled from the photograph.
+The photograph is the window's ground, whole: the entire 3:2 frame, uncropped and
+ungraded, placed with `fit: "contain"`. Where the window is a different shape the
+layout paints the frame's own border colour — measured off the picture, `#030304` —
+so the letterbox is not a bar, it is the photograph running out of stars. Nothing
+in the layout paints a background unless it is smoked glass (`#070b1240`, 25 %), so
+the sky, the disc and its corona are behind the rail, the tabs and the panes rather
+than in a picture block of their own.
 
 **What it gives you**
 
-- the photograph twice, from one composer: the window's band and the rail's
-  limb, `tools/make-sky.py` builds both from the original frame;
-- the photograph's title, date, frame number and credit printed on the rail's
-  band — click it for the full caption, credit and source;
-- agent status in three places at once: the bar's four tallies (click a
-  non-empty one to focus that agent), the bar's eclipse mark, and the 5 px dot
-  on the band (click it for `agent.next`);
-- neither mod binds a key, runs a program or reaches the network.
+- the whole frame, never cropped: in a 16:10 window it fills the height with 90 px of the same near-black at
+  either side (at 2880 px wide); in a tall window it is a band across the middle
+  with the same near-black above and below;
+- the photograph's title, date, frame number and credit printed at the head of the
+  rail — click it for the full caption, credit and source;
+- menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
+  photograph needs a floor;
+- two mods, neither of which binds a key, runs a program or reaches the network.
 
-**Install.** Copy `layouts/` and `mods/` into `~/.config/herdr-app/`, check the
-two mods, then switch:
+**Install.** Copy `layouts/` and `mods/` into `~/.config/herdr-app/`, check the two
+mods, then switch:
 
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar
@@ -36,13 +35,12 @@ herdr-app do layout.switch --name artemis
 herdr-app status
 ```
 
-**[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and
-colour, the node tree, both mods, the two plates and the composer that builds
-them, what a fresh build gets wrong, and how to check a build.
+**[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
+the node tree, both mods, the plate, and the one thing this layout cannot do.
 
 The photograph is `art002e015967` from
-[nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US
-government work, public domain, credit NASA, imply no endorsement. The untouched
-original is not in this repository; the two plates that are composed from it
-are, because the layout needs them. The lists in the preview are blurred on
-purpose — they hold a real machine's own spaces.
+[nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US government
+work, public domain, credit NASA / JSC, imply no endorsement. The layout ships the
+frame re-encoded at 4096 px wide (`mods/artemis-head/photo.jpg`, 1.0 MB) — the same
+pixels, no crop, no grade. The lists in the preview are blurred on purpose; they
+hold a real machine's own spaces.

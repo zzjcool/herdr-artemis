@@ -9,23 +9,23 @@
   "preview": "layouts/artemis.svg",
   "theme": "graphite",
   "colors": {
-    "canvas": "#04060b",
-    "background": "#060a11f2",
-    "chrome": "#080d14d0",
-    "surface": "#070b12f2",
-    "popover": "#0b1018",
-    "raised": "#111a24",
-    "hover": "#ffffff14",
-    "selected": "#ffffff1f",
-    "border": "#ffffff24",
-    "input": "#28313f",
+    "canvas": "#030304",
+    "background": "#00000000",
+    "chrome": "#070b1240",
+    "surface": "#00000000",
+    "popover": "#0a1017",
+    "raised": "#0d141c",
+    "hover": "#ffffff0d",
+    "selected": "#ffffff14",
+    "border": "#ffffff1f",
+    "input": "#0c131a",
     "foreground": "#e7ecf3",
     "muted": "#b7c2cd",
     "dim": "#828d9c",
     "accent": "#e9d8b9",
     "accent_foreground": "#0a0c11",
-    "solid": "#e9d8b9",
-    "solid_foreground": "#0a0c11",
+    "solid": "#111820",
+    "solid_foreground": "#0a0f15",
     "selection": "#2a3a4d66",
     "working": "#8bb3d9",
     "blocked": "#e08a6c",
@@ -50,14 +50,11 @@
     "ansi15": "#edf2f7"
   },
   "background": {
-    "image": "mods/artemis-head/sky.jpg",
-    "fit": "cover"
+    "image": "mods/artemis-head/photo.jpg",
+    "fit": "contain"
   },
-  "padding": [
-    28,
-    0
-  ],
-  "gap": 0,
+  "padding": 14,
+  "gap": 10,
   "terminal_padding": [
     14,
     17
@@ -93,14 +90,10 @@
               "id": "plate",
               "type": "block",
               "size": {
-                "px": 400
+                "px": 104
               },
               "content": {
                 "mod": "artemis-head"
-              },
-              "background": {
-                "image": "mods/artemis-head/rail.jpg",
-                "fit": "cover"
               }
             },
             {
@@ -125,7 +118,13 @@
                 "mod": "agents"
               }
             }
-          ]
+          ],
+          "background": "chrome",
+          "border": {
+            "width": 1,
+            "color": "#ffffff1f"
+          },
+          "radius": 14
         },
         {
           "id": "work",
@@ -140,16 +139,15 @@
                 "px": 38
               },
               "window_drag": true,
+              "content": {
+                "mod": "tabs"
+              },
               "background": "chrome",
               "border": {
                 "width": 1,
-                "color": "border"
+                "color": "#ffffff1f"
               },
-              "radius": 12,
-              "shadow": "sm",
-              "content": {
-                "mod": "tabs"
-              }
+              "radius": 12
             },
             {
               "id": "work-body",
@@ -164,13 +162,12 @@
                     "pane": {
                       "gap": 10,
                       "radius": 14,
-                      "background": "background",
+                      "background": "#00000000",
                       "lone": true,
                       "border": {
                         "width": 1,
-                        "color": "border"
+                        "color": "#ffffff1f"
                       },
-                      "shadow": "lg",
                       "focus": {
                         "width": 1,
                         "color": "accent"
@@ -195,12 +192,6 @@
                   },
                   "min": 280,
                   "max": 900,
-                  "border": {
-                    "width": 1,
-                    "color": "border"
-                  },
-                  "radius": 14,
-                  "shadow": "lg",
                   "children": [
                     {
                       "id": "panel-body",
@@ -223,7 +214,13 @@
                         }
                       ]
                     }
-                  ]
+                  ],
+                  "background": "chrome",
+                  "border": {
+                    "width": 1,
+                    "color": "#ffffff1f"
+                  },
+                  "radius": 14
                 }
               ]
             },
@@ -239,10 +236,9 @@
               "background": "chrome",
               "border": {
                 "width": 1,
-                "color": "border"
+                "color": "#ffffff1f"
               },
-              "radius": 10,
-              "shadow": "sm"
+              "radius": 10
             }
           ],
           "padding": [
