@@ -44,6 +44,12 @@ and the corona read straight through the text.
 - **the same reading in the rail**: under each machine's name in the space list, one left-aligned
   line — the same two glyphs, `42%` and `78%`, then `↓379K ↑67K`, each metric with its own
   sparkline — so the health of every host is one glance away, without switching to a space on it;
+- **a Files panel that can hand you the file**: right-click a row for `Download file` /
+  `Download folder` or `Copy path`. A download lands in `~/Downloads` and never overwrites
+  (`report.pdf`, then `report (2).pdf`); from another machine it is one `scp` over the ssh you
+  already have to that host, not the connection Herdr keeps — that one carries text and stops at
+  8 MiB, which would corrupt anything binary. It says what happened in the same toast the rest of
+  the window uses;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
   minimise, maximise or close the window; the pane header (`artemis-pane`), the tab strip
   (`artemis-tabs`), the status bar's left half (`artemis-workspace-status`) and the space list

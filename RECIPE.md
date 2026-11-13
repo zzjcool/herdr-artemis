@@ -297,6 +297,8 @@ mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis
                               win-close/max/min/restore.svg (Windows buttons)
 mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
 mods/artemis-spaces/          main.js, mod.json {"place":"none","title":"Artemis spaces"}
+mods/artemis-files/           main.js, mod.json {"place":"none"}, file/folder/chevron svgs
+mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
 
@@ -409,11 +411,40 @@ same pixel as the machine header's icon — measured at x = 64 in a 2× shot for
 narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
 are the shipped mod unchanged.
 
+**`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A row opens
+`mods/artemis-files-menu` as a pointer popup over it — `on_mouse_down("right", …)`, `cx.stop_propagation()`,
+the same one-liner `tabs` uses — and the panel, not the menu, does the copying: a popup is gone the
+moment it is clicked and cannot call back into its parent, so the menu leaves a request in
+`setShared("files.download", {name, path, dir, on, at})` and the panel's 500 ms timer takes it once,
+skipping anything older than 15 s, because shared state outlives the session and a stale request must
+not fire on launch. The menu holds two items: **Download file**/**Download folder** and **Copy path**
+(`pbcopy`, else `wl-copy`/`xclip`; `exec` has no stdin, so the path rides in as `$1`).
+
+A download goes to `~/Downloads` and never over an existing name — `report.pdf`, then
+`report (2).pdf` — by two routes, because two machines are two machines. **This computer**
+(`on === null`) is `cp -R`. **Another one** is `scp -q -o BatchMode=yes [-P port] [-r]
+user@host:<path> <dest>` with `timeout: 590000`, and `scp` rather than herdr-core's `exec({on})`
+because that channel carries text and stops at 8 MiB: it would corrupt anything binary and refuse a
+video. The path goes to `scp` raw — since OpenSSH 9 it speaks sftp, so there is no remote shell to
+quote for and a space in a name is just a space (measured against all four machines here). The host
+it dials is **not** the `on` name: `on` is what herdr-core calls a machine, `target` is how it is
+reached (`nj-host` is `nj-host-ts`, `devcloud` is `ssh://root@devcloud.zzj.cool:2222`), so
+`hc machine ls --json` is read once and cached, and the target is split into user/host/port — `scp`
+refuses the `ssh://` form outright (measured: `Connection closed`). `BatchMode=yes` because `exec`
+has no tty and a password prompt would only hang. A copy says what it is doing twice: a footer line
+in the panel — `Downloading preview.png…`, then `Downloaded preview.png → Downloads/preview.png` in
+`ansi2`, or the error's last line in `blocked`, gone after 9 s — and `notify(...)`, the toast the
+rest of the window uses, because a copy can outlast a toast and a toast outlives a hidden panel.
+Measured: a remote file (`gpu:/root/space test.txt`), the same name again (`space test (2).txt`), a
+remote folder (`scp -r`, `/root/attic`), and a local file all landed in `~/Downloads` with
+`errors: []`.
+
 **Shipped mods used:** `spaces`, `agents`, `tabs`, `workspace-status`,
-`files`, `changes` — and four of them are forked: `pane` → `mods/artemis-pane` (the band's
+`changes` — and five of them are forked: `pane` → `mods/artemis-pane` (the band's
 corner), `tabs` → `mods/artemis-tabs` and `workspace-status` →
 `mods/artemis-workspace-status` (a 1 px edge rule that would square a plate's corner, see
-*Watch out*), and `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine).
+*Watch out*), `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine), and
+`files` → `mods/artemis-files` (right-click download).
 Everything else is used as shipped. Nothing needs
 `keys.json`, `programs.json`, `settings.json` or a theme file:
 the look is all in the layout's root.
@@ -431,6 +462,12 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **A popup mod's `props()` is empty in `init`.** It arrives with the first render, so anything that
+  depends on the target must be read in `render` or in a click handler. An `init` that assumed
+  otherwise opened a menu over nothing and left a stray 320 px block in the layout; the block lives
+  on in `layouts/.state/<name>.json` as an extra root node flagged `hidden: true`, taking its width
+  beside a panel that then looks collapsed. Restoring `layouts/<name>.json` **and** deleting
+  `layouts/.state/<name>.json` is what clears it — the panel then comes back with its tree.
 - **`#00000000` is transparent.** An earlier build of this layout shipped the opposite claim
   ("a zero-alpha fill paints black") and built its design around it. It was wrong — the test that
   produced it put the image behind a dark plate and read the plate's own near-black, not the
