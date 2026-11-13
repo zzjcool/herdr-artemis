@@ -186,10 +186,20 @@ sample is one round trip: measured here, 54 ms to a remote Linux host (`devcloud
 probe, 23 ms for `netstat -ibn` on this Mac, and 1.02 s for the macOS probe, of which `iostat`'s
 second is 1.00 s.
 
-**The snapshot is shared.** After each sample `sysmon` publishes
+**The refresh path is a read, never a wait.** `render()` only reads the machines' records and does
+arithmetic on twelve numbers; there is no `await` in it and no command is started from it. A tick
+calls `pump()`, which starts a probe in `cx.spawn` and returns at once — so a Mac probe's second, or
+a host that takes eight (its `exec` timeout), costs the window a stale number and nothing else.
+`busy` per machine keeps a slow answer from stacking under the next tick, and the probe's own
+output is filtered on the machine, so the parser reads ~1 KB, not the whole of `netstat`.
+
+**The snapshot is shared, on the rail's own clock.** After each sample `sysmon` publishes
 `setShared("sysmon.machines", {hosts: {…}})`, and the rail draws the same reading under each
-machine's name (below). `setShared` re-renders every mod, so the publish is throttled to one every
-900 ms; a machine that stops answering simply stops appearing in new snapshots.
+machine's name (below). `setShared` re-renders *every* mod, so it is the one thing in the refresh
+path that touches more than this block: it runs every `PUBLISH` 2 s — the rail reads a machine every
+15 s, so a faster fan-out would buy nothing — except when a machine's `live` flag flips, which is
+published at once so the rail dims (or wakes) without a lag. The bar itself is redrawn by
+`cx.notify()`, which touches this mod alone, every tick.
 
 **A machine that goes away does not take the monitor with it.** A failed sample leaves that
 machine's numbers in `dim` with no cream tick, three in a row and it is asked once a minute instead
@@ -446,6 +456,13 @@ the content, one for the footer, 10 px between them.
   (`rounded_t(radius - 1)`, `rounded_b` when the header sits at the bottom), which is the one change
   `mods/artemis-pane` makes, and keep the pane's floor in `content.pane.background`, which *is*
   clipped.
+- **`setShared` is the only fan-out in this layout, and it is not free.** Every `setShared`
+  re-renders every loaded mod — the file tree, the changes list, the tab strip, the space list — not
+  just the one that published. Measured here it does not show above the noise of three terminal
+  panes (18–29 % of a core either way, `PUBLISH` 300 ms against 2000 ms), so the 2 s cadence is a
+  design choice and not a measured win: the rail reads each machine every 15 s, and nothing in it
+  needs a number that is one second fresh. If a heavier layout ever does show the cost, slow this
+  cadence further rather than the poll — the bar's own `cx.notify()` is the cheap path.
 - **A mod's 1 px edge rule is not clipped either, not even on a plate.** The shipped `tabs` draws
   `.border_b(1)` and `workspace-status` `.border_t(1)` along their own full width, and a mod's view is
   drawn square on top of the block's rounded border — so each left a straight lit row across a

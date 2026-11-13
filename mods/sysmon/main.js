@@ -21,6 +21,14 @@
 // false 0). macOS is the exception: `iostat -c 2 -w 1` is the only honest
 // per-second CPU figure it offers, so there the probe spends its own second.
 //
+// The bar never waits on a command. A tick starts a probe in `cx.spawn` and
+// returns at once; when the answer lands it is written into that machine's
+// record and the view is notified. `render()` only reads those records, so a Mac
+// probe's second, or a link that takes ten, costs the window nothing but a stale
+// number — never a stall. The one cross-mod write (`setShared`, which the rail
+// listens to) runs on its own slower cadence, so the rail's re-render is not paid
+// once a second for numbers it reads every fifteen.
+//
 // Each metric is a label, a value in the bar's mono face, and a sparkline of the
 // last twelve samples — history ticks in `idle`, the newest in `accent`, so the
 // strip reads left to right and its right edge is "now". CPU and memory are
@@ -41,6 +49,7 @@ const STALE = 6000;      // a reading older than this is not "now" on the bar an
 const RAIL_STALE = 30000;// ... and older than this is not "now" in the rail either
 const BG_STALE = 15000;  // a machine nobody is looking at is re-read this often
 const BG_GAP = 2000;     // ... but never more often than this
+const PUBLISH = 2000;    // ms between `setShared`, the rail's cadence (the bar redraws every tick)
 const FLOOR = 4096;      // bytes/s: the network strip's smallest full scale
 const GIB = 1024 ** 3;
 const SHARED = "sysmon.machines";
@@ -378,6 +387,7 @@ export default class Sysmon extends View {
         host.rx = r.rx;
         host.tx = r.tx;
       }
+      const wasLive = host.live;
       host.missing = 0;
       host.wait = 0;
       host.live = true;
@@ -394,7 +404,7 @@ export default class Sysmon extends View {
       if (due || !host.mem.length) this.push(host.mem, Math.round((r.used / r.total) * 100));
       if (due || !host.net.length) this.push(host.net, Math.round(host.inBps + host.outBps));
       if (due) host.pushed = at;
-      this.publish();
+      this.publish(!wasLive);
       cx.notify();
     });
   }
@@ -406,18 +416,19 @@ export default class Sysmon extends View {
   // in `dim`, no cream tick — rather than passing old numbers off as "now".
   fail(key, cx) {
     const host = this.host(key);
+    const wasLive = host.live;
     host.missing++;
     host.live = false;
     if (host.missing >= 3) host.wait = SLOW;
-    this.publish();
+    this.publish(wasLive);
     cx.notify();
   }
 
   // What the rail draws. `setShared` re-renders every mod, so the monitor under
   // a machine's name in `mods/artemis-spaces` is this same snapshot.
-  publish() {
+  publish(force = false) {
     const now = Date.now();
-    if (now - this.published < 900) return;
+    if (!force && now - this.published < PUBLISH) return;
     this.published = now;
     const hosts = {};
     for (const [key, host] of Object.entries(this.hosts)) {
