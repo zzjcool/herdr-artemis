@@ -191,11 +191,18 @@ function linuxNet(text) {
   return seen ? { rx, tx } : null;
 }
 
-// "23.2/32G", or "97/128G" once the total needs three digits to be useful.
+// Every number is padded to a fixed number of characters: the values are drawn in
+// a mono face, so a "7 %" and a "100 %" stand in the same columns and the strip
+// beside them never shifts.
+const pad = (text, width) => String(text).padStart(width);
+
+// "23.2/32G", or "97/128G" once the total needs three digits to be useful — always
+// nine characters, so `3.8/15G` and `29.4/62G` line up.
 function memory(used, total) {
   const u = used / GIB;
   const t = total / GIB;
-  return `${t >= 100 ? Math.round(u) : u.toFixed(1)}/${Math.round(t)}G`;
+  const left = t >= 100 ? `${Math.round(u)}` : u.toFixed(1);
+  return `${pad(left, 4)}/${pad(Math.round(t), 3)}G`;
 }
 
 // A rate without a unit of time: the label says NET, and "/s" twice per line is
@@ -207,6 +214,10 @@ function rate(bps) {
   if (bps >= 1024) return `${(bps / 1024).toFixed(bps >= 10 * 1024 ? 0 : 1)}K`;
   return `${Math.round(bps)}`;
 }
+
+// `↓ 65K ↑157K`: each rate in its own four-character cell, so the arrows stand
+// still while the numbers grow and shrink.
+const pair = (inBps, outBps) => `↓${pad(rate(inBps), 4)} ↑${pad(rate(outBps), 4)}`;
 
 const ZEROS = new Array(TICKS).fill(0);
 
@@ -537,9 +548,9 @@ export default class Sysmon extends View {
         this.metric(t, {
           ...shared,
           label: "CPU",
-          value: host.cpuKnown ? `${last(host.cpu)}%` : "—",
+          value: host.cpuKnown ? `${pad(last(host.cpu), 3)}%` : "  —%",
           history: host.cpu.length ? host.cpu : ZEROS,
-          width: 34,
+          width: 32,
         }))
       .child(div().flex_none().w(1).h(BAR).bg(t.border))
       .child(
@@ -548,16 +559,16 @@ export default class Sysmon extends View {
           label: "MEM",
           value: memory(host.used, host.total),
           history: host.mem.length ? host.mem : ZEROS,
-          width: 58,
+          width: 66,
         }))
       .child(div().flex_none().w(1).h(BAR).bg(t.border))
       .child(
         this.metric(t, {
           ...shared,
           label: "NET",
-          value: host.netKnown ? `↓${rate(host.inBps)} ↑${rate(host.outBps)}` : "—",
+          value: host.netKnown ? pair(host.inBps, host.outBps) : "↓   — ↑   —",
           history: host.net.length ? host.net : ZEROS,
-          width: 74,
+          width: 80,
           scale: net,
         }));
   }

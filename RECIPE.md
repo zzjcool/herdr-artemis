@@ -121,9 +121,13 @@ clipped by the plate's radius, so that line squared the bar's corners (see *Watc
 `MEM`, `23.1/32G` — that machine's own total, so a 15G host reads `/15G` — and a strip of the same
 twelve ticks; a 1 px rule; `NET`, `↓1.2M ↑96K` — bytes a second in and out of the machine's own
 links — and one strip of the two together. Labels are 9 px `dim` `#828d9c`; numbers are
-11.5 px in `settings().font_family` (else JetBrains Mono) in `muted` `#b7c2cd`, right-aligned in
-fixed boxes — 34 px for the percentage, 58 px for the memory, 74 px for the two rates — so `%`, `G`
-and `K` stand in the same column on every sample and the strips never shift. A strip is twelve 2 px
+11.5 px in `settings().font_family` (else JetBrains Mono) in `muted` `#b7c2cd`, **padded to a fixed
+number of characters** and left in fixed boxes — 32 px for the percentage (` 7 %`, `100 %`), 66 px
+for the memory (` 3.8/ 15G`, `29.4/ 62G`, `  16/125G`), 80 px for the two rates
+(`↓ 65K ↑157K`) — so every digit, `%`, `/`, `G` and both arrows stand in the same column on every
+sample and the strips never shift. Padding rather than right-aligning is the point: with a mono face
+a padded string *is* a column; a right-aligned one only pins its last character, and `7 %` beside
+`100 %` moves the digits. A strip is twelve 2 px
 ticks 2 px apart, 1–11 px tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in
 `accent` `#e9d8b9`, so the right edge of a strip is “now”. CPU and memory scale against 0–100 %; the
 network strip scales against the busiest sample of its own window (at least 4 KB/s), because a link
@@ -230,8 +234,11 @@ keeps trying once a minute instead of every tick.
 
 **The rail shows every machine's reading.** Under each machine's name in the space list — `This
 computer`, `devcloud`, `gpu`, `nj-host`, `nj-hw` — one 17 px line: `CPU 42%` and `MEM 78%` with a
-twelve-tick strip each (1 px ticks, 7 px tall) and `↓379K ↑67K` at the right end, at 8.5–10 px,
-indented 29 px so it hangs under the name rather than under the icon. It is `mods/artemis-spaces` —
+twelve-tick strip each (1 px ticks, 7 px tall) and `↓379K ↑ 67K` after them, at 8.5–10 px,
+indented 29 px so it hangs under the name rather than under the icon. Every number there is padded
+and set in the same mono face as the bar's, and the whole line is **left-aligned**: right-aligning
+the rates against the rail's edge would make the gap between `MEM` and `↓` grow and shrink with the
+numbers. It is `mods/artemis-spaces` —
 the shipped `spaces` plus a `stats()` method that reads the snapshot `sysmon` publishes: nothing in
 the rail samples anything or waits on an answer, and a machine with no reading yet draws no line at
 all rather than an empty one. The numbers go `dim` when that machine's last sample failed, and the
@@ -301,7 +308,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 └ status      row 26  gap 0  resizable false  radius 10
                        background "#070b1240"  border {1,"#ffffff1f"}
   ├ status-workspace  block weight 1  mod artemis-workspace-status
-  └ status-sysmon     block 496  min 496  mod sysmon  (paints no fill)
+  └ status-sysmon     block 512  min 512  mod sysmon  (paints no fill)
 ```
 
 The pane frame is exactly
@@ -531,15 +538,17 @@ the content, one for the footer, 10 px between them.
   would read a machine as dead that is answering fine. Keep the `n`.
 - **`vm_stat`'s page size is 16384 on Apple Silicon and 4096 on Intel** — read it from the header
   (`page size of N bytes`); assuming 16384 reports memory 4× off on an Intel Mac.
-- **The block is 496 px for 485 px of content.** 1 px border + 2 × 12 px padding + 460 px
-  (CPU `24 + 7 + 34 + 7 + 46`, then `10 + 1 + 10`, then MEM `24 + 7 + 58 + 7 + 46`, then
-  `10 + 1 + 10`, then NET `24 + 7 + 74 + 7 + 46`) = 485; the spare pixels are `justify_end`'s
-  slack, so nothing is stretched. Change `TICKS` or a `width` and the layout's `px` must change with
-  it — a short block clips the CPU label on the left, not on the right.
+- **The block is 512 px for 497 px of content.** 1 px border + 2 × 12 px padding + 432 px
+  (CPU `24 + 7 + 32 + 7 + 46`, then `10 + 1 + 10`, then MEM `24 + 7 + 66 + 7 + 46`, then
+  `10 + 1 + 10`, then NET `24 + 7 + 80 + 7 + 46`) + 40 px of gaps = 497; the spare pixels are
+  `justify_end`'s slack, so nothing is stretched. The widths are the padded strings' own width in
+  the mono face (~6.9 px a character), not a round number: change the padding and both the `width`
+  here and the layout's `px` have to follow — a short block clips the CPU label on the left, not on
+  the right.
 - **The `status` row is `resizable: false`, and that is load-bearing.** Rows are draggable at their
   boundaries by default, so without it the seam is a handle that can squeeze the monitor under its
-  485 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
-  `min: 496` as a second guard.
+  497 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
+  `min: 512` as a second guard.
 - **`herdr-app check` proves little about this mod.** `render()` returns an empty `div()` until a
   sample has landed, so the check exercises `init`'s two timers and that empty block — and no program
   at all, since the samples start on the timer; the numbers and their strips are built only in the

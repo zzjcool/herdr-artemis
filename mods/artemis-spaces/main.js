@@ -12,7 +12,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
+import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, settings, watchFolder, window, layout } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -320,22 +320,27 @@ export default class Spaces extends View {
     if (!host || !host.cpu.length) return null;
     const ink = host.live ? t.muted : t.dim;
     const now = host.live ? t.accent : t.unknown;
+    const mono = settings().font_family ?? "JetBrains Mono";
+    const pad = (text, width) => String(text).padStart(width);
     const strip = (values, scale) => h_flex().flex_none().gap(1).h(MINI_BAR).items_end()
       .children(values.map((v, i) => div().w(1)
         .h(1 + Math.round(Math.min(1, Math.max(0, v / scale)) * (MINI_BAR - 1)))
         .bg(i === values.length - 1 ? now : t.idle)));
-    const metric = (label, value, values, width) => h_flex().flex_none().gap(5).items_center()
-      .child(div().flex_none().text_size(8.5).text_color(t.dim).child(label))
-      .child(h_flex().flex_none().w(width).justify_end()
-        .child(div().flex_none().text_size(10).text_color(ink).child(value)))
+    // Numbers in the mono face and padded to a fixed width, so a 7 % and a 100 %
+    // stand in the same columns; the line is left-aligned end to end and does not
+    // lean on the rail's right edge.
+    const metric = (label, value, values) => h_flex().flex_none().gap(4).items_center()
+      .child(div().flex_none().w(22).text_size(8.5).text_color(t.dim).child(label))
+      .child(div().flex_none().font_family(mono).text_size(10).text_color(ink).child(value))
       .child(strip(values, 100));
     const last = (values) => values[values.length - 1];
+    const pair = host.netKnown
+      ? `↓${pad(rate(host.inBps), 4)} ↑${pad(rate(host.outBps), 4)}`
+      : "↓   — ↑   —";
     return h_flex().id(`machine-stats-${m ?? "local"}`).h(MINI_H).flex_none().pl(29).pr(6).gap(8).items_center()
-      .child(metric("CPU", `${last(host.cpu)}%`, host.cpu, 22))
-      .child(metric("MEM", `${last(host.mem)}%`, host.mem, 22))
-      .child(h_flex().flex_1().min_w(0).justify_end().overflow_hidden()
-        .child(div().flex_none().text_size(9.5).text_color(ink)
-          .child(host.netKnown ? `↓${rate(host.inBps)} ↑${rate(host.outBps)}` : "—")));
+      .child(metric("CPU", `${pad(last(host.cpu), 3)}%`, host.cpu))
+      .child(metric("MEM", `${pad(last(host.mem), 3)}%`, host.mem))
+      .child(div().flex_none().font_family(mono).text_size(9.5).text_color(ink).child(pair));
   }
 
   // The rows, under a header per machine once one isn't this computer.
