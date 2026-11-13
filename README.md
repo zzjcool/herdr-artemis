@@ -25,21 +25,28 @@ text.
   right-angled sheets of smoke, so nothing rounds a corner the photograph does not;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
-- one mod (`artemis-bar`) that binds no key, starts no program, and only asks Herdr to
-  minimise, maximise or close the window; it reaches no network.
+- **a system monitor at the right end of the status bar**: the CPU and memory of the machine the
+  shown space lives on — this computer, or the host that space's terminals run on, read over the
+  connection Herdr already keeps to it (`iostat`/`vm_stat` on macOS, `/proc` on Linux, all
+  read-only), a number and a twelve-tick sparkline each, sampled every three seconds; switch to a
+  space on another machine and the readings become that machine's. The mod never runs ssh and holds
+  no key, and a machine that cannot answer draws nothing at all;
+- the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
+  minimise, maximise or close the window; neither it nor the monitor touches the network.
 
 **Install.** Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`
 (`backgrounds/artemis.jpg` is the ground — without it the window has no photograph),
-check the mod, then switch:
+check the mods, then switch:
 
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar
+herdr-app check ~/.config/herdr-app/mods/sysmon
 herdr-app do layout.switch --name artemis
 herdr-app status
 ```
 
 **[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
-the node tree, the bar mod, the picture, and the one thing this layout cannot do.
+the node tree, the two mods, the picture, and the one thing this layout cannot do.
 
 The photograph is `art002e015967` from
 [nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US government
