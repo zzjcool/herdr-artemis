@@ -186,6 +186,12 @@ sample is one round trip: measured here, 54 ms to a remote Linux host (`devcloud
 probe, 23 ms for `netstat -ibn` on this Mac, and 1.02 s for the macOS probe, of which `iostat`'s
 second is 1.00 s.
 
+**A probe that outlasts the tick continues the cycle itself.** A tick that arrives while a probe is
+in flight is skipped (`busy`) — which on a Mac would make every second tick a no-op and halve the
+rate to 2 s. So when a sample lands the shown machine is pumped again 1 ms later; `pump` re-checks
+the interval, so a fast probe still keeps to one reading a second while the 1.02 s macOS probe runs
+back to back. Measured: the bar's numbers move about once a second on this Mac, not once every two.
+
 **The refresh path is a read, never a wait.** `render()` only reads the machines' records and does
 arithmetic on twelve numbers; there is no `await` in it and no command is started from it. A tick
 calls `pump()`, which starts a probe in `cx.spawn` and returns at once — so a Mac probe's second, or

@@ -367,6 +367,11 @@ export default class Sysmon extends View {
         r = null;
       }
       host.busy = false;
+      // A probe that outlasts the tick — macOS spends its own second — would
+      // otherwise sit out every second tick and halve the refresh rate. Continue
+      // the cycle as soon as the answer lands; `pump` re-checks the interval, so
+      // a fast probe still keeps to one sample a second.
+      if (key === keyOf(this.current())) cx.timer.after(1, (cx) => this.pump(cx));
       if (!r || !(r.total > 0) || !(r.used >= 0)) {
         this.fail(key, cx);
         return;
