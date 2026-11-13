@@ -75,7 +75,7 @@
     {
       "id": "body",
       "type": "row",
-      "gap": 0,
+      "gap": 10,
       "children": [
         {
           "id": "sidebar",
@@ -119,7 +119,7 @@
         {
           "id": "work",
           "type": "column",
-          "gap": 12,
+          "gap": 10,
           "resizable": false,
           "children": [
             {
@@ -252,10 +252,6 @@
                 }
               ]
             }
-          ],
-          "padding": [
-            10,
-            20
           ]
         }
       ]

@@ -96,10 +96,14 @@ insets the whole body from the window), holding, top to bottom:
 1. **`spaces`** — the shipped `spaces` mod, `weight: 1`, `min` 90.
 2. **`agents`** — the shipped `agents` mod, `weight: 1`, `min` 90.
 
-**Work column** — `gap` 12 and `padding` `[10, 20]`, so the tabs, the pane and the status bar sit
-10 px in from the top and bottom and 20 px in from the rail and the window edge: `tabs` 38 px with
-the shipped `tabs` mod → `work-body` row, `gap` 10 → the pane area and the hidden panel →
-`status` 26 px: `workspace-status` (weight 1) plus the monitor, 308 px.
+**Work column** — `gap` 10 and no padding of its own, because one gutter runs through the whole
+window: the root keeps `padding` 14 (the only inset from the window's edge), `body` has `gap` 10
+between the rail and the work column, and the work column's `gap` 10 spends itself between `tabs`,
+`work-body` and `status`. So every plate is 10 px from its neighbour on all four sides, the tab
+strip's top edge sits on the rail's top line, and the status bar's bottom edge sits on the rail's
+bottom line — measured, see *Watch out*. Inside: `tabs` 38 px with the shipped `tabs` mod →
+`work-body` row, `gap` 10 → the pane area and the hidden panel → `status` 26 px:
+`workspace-status` (weight 1) plus the monitor, 308 px.
 
 **The status bar is a row, not a block**, since its right end holds a second mod: `workspace-status`
 at `weight: 1` takes every pixel the monitor does not, so the palette hint stays where the shipped
@@ -220,12 +224,12 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
               padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0,
               preview "layouts/artemis.svg"
 ├ bar         block 38   window_drag  mod artemis-bar     (nothing painted)
-└ body        row        gap 0
+└ body        row        gap 10
   ├ sidebar   column 292  min 220  max 420  radius 14
   │ │                    background "#070b1240"  border {1,"#ffffff1f"}
   │ ├ spaces  block weight 1  min 90  mod spaces   (no fill)
   │ └ agents  block weight 1  min 90  mod agents   (no fill)
-  └ work      column gap 12  padding [10,20]  resizable false
+  └ work      column gap 10  resizable false
     ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
     │                    border {1,"#ffffff1f"}  mod tabs
     ├ work-body  row  gap 10
@@ -345,6 +349,14 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   Don't set `chrome` to the plate colour: the bar would grow a band across the top of the window.
 - **A plate's corner is its node's `radius`; the pane's is `content.pane.radius`.** Put the value in
   `content.pane`, not on the node, or the frame stays square.
+- **One gutter, 10 px, and the plates share the rail's top and bottom lines.** Measured on 0.1.15 with
+  each plate's border coloured so its rect can be found: with `body` `gap` 0, `work` `gap` 12 and
+  `work` `padding` `[10, 20]` the rail spanned y 62..2515.5 while the tab strip sat at 72..109.5 and
+  the status bar ended at 2505.5 — every plate 10 px out of step with the rail, and the gutter to the
+  rail 20 px against 10 and 12 inside. Three fields fix it — `body.gap` 10, no padding on `work`,
+  `work.gap` 10 — and then: rail 62..2515.5, tabs 62..99.5, pane and panel 110..2479.5, status
+  2490..2515.5, all x gutters 10, both right edges flush at 1425.5. A plate that looks 10 px off is
+  one of those three fields; measure the rects rather than nudging pixels.
 - **The pane frame clips its own fill, its border and the header's divider rule — and nothing that
   something else draws.** Two things escape that clip: a **header mod's band** (measured on 0.1.15:
   the shipped `pane` header at radius 14 keeps a 14 px square of `theme().background` outside the arc
