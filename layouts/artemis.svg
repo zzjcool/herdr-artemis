@@ -41,7 +41,7 @@
   <rect x="282" y="3.45" width="36" height="1.5" rx="0.75" fill="#828d9c" fill-opacity="0.78"/>
 
   <!-- the rail: one glass plate laid on the photograph, nothing opaque inside it -->
-  <rect x="0.11" y="8.51" width="64.68" height="185.18" rx="3.11" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
+  <rect x="0.11" y="8.51" width="64.68" height="176.49" rx="3.11" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
 
 
   <!-- the spaces list: a header with a plus, four rows of dot + name + pips -->
@@ -123,18 +123,19 @@
     <rect x="87" y="174.05" width="2.6" height="1.7" fill="#c9d2dc" fill-opacity="0.45"/>
   </g>
 
-  <!-- the status strip: the machine, the branch, an agent status dot, the palette hint, and at
-       its right end the system monitor, whose numbers sit on the strip itself -->
-  <rect x="67.2" y="187" width="248.4" height="6.8" rx="2.22" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
-  <rect x="70.2" y="189.6" width="2.2" height="1.6" rx="0.3" fill="none" stroke="#828d9c" stroke-width="0.28"/>
-  <rect x="70.9" y="191.2" width="0.8" height="0.3" fill="#828d9c"/>
-  <rect x="73.8" y="189.75" width="14" height="1.3" rx="0.65" fill="#828d9c" fill-opacity="0.9"/>
-  <circle cx="91.8" cy="189.9" r="0.28" fill="#828d9c" fill-opacity="0.8"/>
-  <circle cx="91.8" cy="191.9" r="0.28" fill="#828d9c" fill-opacity="0.8"/>
-  <rect x="91.66" y="189.9" width="0.24" height="2" fill="#828d9c" fill-opacity="0.8"/>
-  <rect x="91.8" y="191.4" width="1.3" height="0.24" fill="#828d9c" fill-opacity="0.8"/>
-  <circle cx="93.5" cy="191.5" r="0.28" fill="#828d9c" fill-opacity="0.8"/>
-  <rect x="95.8" y="189.8" width="8.5" height="1.2" rx="0.6" fill="#828d9c" fill-opacity="0.7"/>
+  <!-- the status strip: a footer across the whole window, under the rail too — the machine,
+       the branch, an agent status dot on its left, the palette hint, and at its right end the
+       system monitor, whose numbers sit on the strip itself -->
+  <rect x="0.11" y="187" width="319.78" height="6.8" rx="2.22" fill="#070b12" fill-opacity="0.25" stroke="#ffffff" stroke-opacity="0.12" stroke-width="0.22"/>
+  <rect x="4.2" y="189.6" width="2.2" height="1.6" rx="0.3" fill="none" stroke="#828d9c" stroke-width="0.28"/>
+  <rect x="4.9" y="191.2" width="0.8" height="0.3" fill="#828d9c"/>
+  <rect x="7.8" y="189.75" width="14" height="1.3" rx="0.65" fill="#828d9c" fill-opacity="0.9"/>
+  <circle cx="25.8" cy="189.9" r="0.28" fill="#828d9c" fill-opacity="0.8"/>
+  <circle cx="25.8" cy="191.9" r="0.28" fill="#828d9c" fill-opacity="0.8"/>
+  <rect x="25.66" y="189.9" width="0.24" height="2" fill="#828d9c" fill-opacity="0.8"/>
+  <rect x="25.8" y="191.4" width="1.3" height="0.24" fill="#828d9c" fill-opacity="0.8"/>
+  <circle cx="27.5" cy="191.5" r="0.28" fill="#828d9c" fill-opacity="0.8"/>
+  <rect x="29.8" y="189.8" width="8.5" height="1.2" rx="0.6" fill="#828d9c" fill-opacity="0.7"/>
   <circle cx="268.4" cy="190.4" r="0.55" fill="#8bb3d9"/>
   <rect x="270.4" y="189.75" width="2.6" height="1.3" rx="0.5" fill="#8bb3d9" fill-opacity="0.85"/>
   <rect x="223.85" y="189.6" width="4.6" height="1.6" rx="0.45" fill="#ffffff" fill-opacity="0.09"/>

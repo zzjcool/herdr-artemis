@@ -98,17 +98,18 @@ insets the whole body from the window), holding, top to bottom:
 
 **Work column** — `gap` 10 and no padding of its own, because one gutter runs through the whole
 window: the root keeps `padding` 14 (the only inset from the window's edge), `body` has `gap` 10
-between the rail and the work column, and the work column's `gap` 10 spends itself between `tabs`,
-`work-body` and `status`. So every plate is 10 px from its neighbour on all four sides, the tab
-strip's top edge sits on the rail's top line, and the status bar's bottom edge sits on the rail's
-bottom line — measured, see *Watch out*. Inside: `tabs` 38 px with the shipped `tabs` mod →
-`work-body` row, `gap` 10 → the pane area and the hidden panel → `status` 26 px:
-`workspace-status` (weight 1) plus the monitor, 308 px.
+between the rail and the work column, and the work column's `gap` 10 spends itself between `tabs`
+and `work-body`. So every plate is 10 px from its neighbour on all four sides, the tab strip's top
+edge sits on the rail's top line, and the rail, the pane and the panel all end on one bottom line —
+measured, see *Watch out*. Inside: `tabs` 38 px with the shipped `tabs` mod → `work-body` row,
+`gap` 10 → the pane area and the hidden panel.
 
-**The status bar is a row, not a block**, since its right end holds a second mod: `workspace-status`
-at `weight: 1` takes every pixel the monitor does not, so the palette hint stays where the shipped
-mod puts it — just left of the seam. The row is `resizable: false`: the seam is a 1 px rule, not a
-drag handle, and the monitor's 308 px cannot be moved by a stray press. The 25 % smoke and the
+**The status bar is a footer**, a child of the root and not of the work column: it spans the whole
+window — under the rail as well — 26 px tall, one gutter below the line the rail, pane and panel
+end on. It is a `row` because its right end holds a second mod: `workspace-status` at `weight: 1`
+takes every pixel the monitor does not, so the palette hint stays where the shipped mod puts it —
+just left of the seam. The row is `resizable: false`: the seam is a 1 px rule, not a drag handle,
+and the monitor's 308 px cannot be moved by a stray press. The 25 % smoke and the
 1 px `#ffffff1f` rule are on the row; the seam is a 1 px rule the monitor draws on its own left edge,
 and both halves draw the same 1 px rule along their top edge, so the bar keeps the two thin layers
 it always had.
@@ -224,23 +225,23 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
               padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0,
               preview "layouts/artemis.svg"
 ├ bar         block 38   window_drag  mod artemis-bar     (nothing painted)
-└ body        row        gap 10
-  ├ sidebar   column 292  min 220  max 420  radius 14
-  │ │                    background "#070b1240"  border {1,"#ffffff1f"}
-  │ ├ spaces  block weight 1  min 90  mod spaces   (no fill)
-  │ └ agents  block weight 1  min 90  mod agents   (no fill)
-  └ work      column gap 10  resizable false
-    ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
-    │                    border {1,"#ffffff1f"}  mod tabs
-    ├ work-body  row  gap 10
-    │ ├ main  block  content {tab "active", pane {...}}
-    │ └ panel column 340  min 280  max 900  hidden true  radius 14
-    │          background "#070b1240"  border {1,"#ffffff1f"}
-    │   └ panel-body  stack  active "files"  children: files, changes
-    └ status       row 26  gap 0  resizable false  radius 10
-                           background "#070b1240"  border {1,"#ffffff1f"}
-      ├ status-workspace  block weight 1  mod workspace-status
-      └ status-sysmon     block 308  min 308  mod sysmon  (paints no fill)
+├ body        row        gap 10  weight 1
+│ ├ sidebar   column 292  min 220  max 420  radius 14
+│ │ │                    background "#070b1240"  border {1,"#ffffff1f"}
+│ │ ├ spaces  block weight 1  min 90  mod spaces   (no fill)
+│ │ └ agents  block weight 1  min 90  mod agents   (no fill)
+│ └ work      column gap 10  resizable false
+│   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
+│   │                    border {1,"#ffffff1f"}  mod tabs
+│   └ work-body  row  gap 10
+│     ├ main  block  content {tab "active", pane {...}}
+│     └ panel column 340  min 280  max 900  hidden true  radius 14
+│              background "#070b1240"  border {1,"#ffffff1f"}
+│       └ panel-body  stack  active "files"  children: files, changes
+└ status      row 26  gap 0  resizable false  radius 10
+                       background "#070b1240"  border {1,"#ffffff1f"}
+  ├ status-workspace  block weight 1  mod workspace-status
+  └ status-sysmon     block 308  min 308  mod sysmon  (paints no fill)
 ```
 
 The pane frame is exactly
@@ -357,6 +358,13 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   `work.gap` 10 — and then: rail 62..2515.5, tabs 62..99.5, pane and panel 110..2479.5, status
   2490..2515.5, all x gutters 10, both right edges flush at 1425.5. A plate that looks 10 px off is
   one of those three fields; measure the rects rather than nudging pixels.
+- **The status bar is the root's child, not the work column's, so the window has one content bottom
+  line.** With `status` inside `work` the rail ran down to the window's bottom edge while the pane and
+  the panel stopped a status bar higher: two live bottom edges 36 px apart (measured 2479.5 against
+  2515.5). Moving `status` out to `root` — after `body`, which then needs `size` `{"weight": 1}` —
+  makes the rail, the pane and the panel end together at 2479.5, with the footer strip 26 px tall on
+  its own line at 2490..2515.5, spanning the full width 14..1425.5 (under the rail too). One line for
+the content, one for the footer, 10 px between them.
 - **The pane frame clips its own fill, its border and the header's divider rule — and nothing that
   something else draws.** Two things escape that clip: a **header mod's band** (measured on 0.1.15:
   the shipped `pane` header at radius 14 keeps a 14 px square of `theme().background` outside the arc

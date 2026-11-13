@@ -213,46 +213,49 @@
                   "radius": 14
                 }
               ]
-            },
-            {
-              "id": "status",
-              "type": "row",
-              "size": {
-                "px": 26
-              },
-              "gap": 0,
-              "resizable": false,
-              "background": "#070b1240",
-              "border": {
-                "width": 1,
-                "color": "#ffffff1f"
-              },
-              "radius": 10,
-              "children": [
-                {
-                  "id": "status-workspace",
-                  "type": "block",
-                  "size": {
-                    "weight": 1
-                  },
-                  "content": {
-                    "mod": "workspace-status"
-                  }
-                },
-                {
-                  "id": "status-sysmon",
-                  "type": "block",
-                  "size": {
-                    "px": 308
-                  },
-                  "min": 308,
-                  "content": {
-                    "mod": "sysmon"
-                  }
-                }
-              ]
             }
           ]
+        }
+      ],
+      "size": {
+        "weight": 1
+      }
+    },
+    {
+      "id": "status",
+      "type": "row",
+      "size": {
+        "px": 26
+      },
+      "gap": 0,
+      "resizable": false,
+      "background": "#070b1240",
+      "border": {
+        "width": 1,
+        "color": "#ffffff1f"
+      },
+      "radius": 10,
+      "children": [
+        {
+          "id": "status-workspace",
+          "type": "block",
+          "size": {
+            "weight": 1
+          },
+          "content": {
+            "mod": "workspace-status"
+          }
+        },
+        {
+          "id": "status-sysmon",
+          "type": "block",
+          "size": {
+            "px": 308
+          },
+          "min": 308,
+          "content": {
+            "mod": "sysmon"
+          }
         }
       ]
     }
