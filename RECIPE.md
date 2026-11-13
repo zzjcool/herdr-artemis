@@ -59,13 +59,15 @@ top of the window. Every plate that *should* be visible names the literal `#070b
 | `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` | 14 |
 
 **The pane** is a bare frame: it inherits the 20 % tint, gets a `1px` `#ffffff1f` border (the
-pane holding the keyboard takes `accent` `#e9d8b9` instead) and radius 14. The shipped `pane` header
+pane holding the keyboard takes `accent` `#e9d8b9` instead) and radius 14. The `artemis-pane` header
 sits 30 px at the top, always visible: program icon, title, folder, the agent's status (spinner,
 `Needs you` while blocked, a dot when done), and — on hover only — split-right, split-down, zoom
 and close. The header paints `theme().background`, i.e. a second 20 % tint, plus a 1 px `border`
 rule: two thin layers rather than a slab, which is what keeps it from fighting the photograph.
-Both layers are clipped to the frame's curve, so the tint stops on the arc instead of squaring the
-pane's top corners.
+The frame clips its own fill, its border, the divider rule and the terminal's paper to the arc, but
+a mod's own view is drawn on top of that clip — so the band rounds itself, to the frame's radius
+minus the 1 px border (13 against 14), and its tint stops on the curve exactly where the pane's
+fill does.
 
 **Top bar — 38 px, full width, `window_drag: true`, nothing painted.** Its type sits straight on
 the photograph. One row at 11.5 px, left to right:
@@ -199,6 +201,8 @@ layouts/artemis.json          the window
 layouts/artemis.svg           the picture Settings shows for this layout (root "preview")
 backgrounds/artemis.jpg       the ground: the whole NASA frame, re-encoded
 mods/artemis-bar/             main.js, mod.json {"place":"none","title":"Artemis bar"}
+mods/artemis-pane/            main.js, mod.json {"place":"none","title":"Artemis pane header"},
+                              close/zoom/unzoom/split-right/split-down.svg
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
 
@@ -230,7 +234,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 ```
 
 The pane frame is exactly
-`{"gap":10,"radius":14,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`
+`{"gap":10,"radius":14,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"artemis-pane"},"height":30,"position":"top","reveal":"always"}}`
 — no `background`, so it keeps the layout's 20 % tint, and `radius` 14 like every plate: the frame
 must be stated in `content.pane`, not on the node, or the frame stays square (the node's `radius`
 rounds the block's own fill, not the pane).
@@ -245,6 +249,16 @@ UTC. Every control is wrapped in `.on_mouse_down("left", (_e, cx) => cx.stopProp
 mark is three nested `div()`s: `size(16).rounded(8).border(1)` at `${color}38`, inside it
 `size(11).rounded(6).border(1)` at the status colour, inside that `size(5).rounded(3).bg("#05080c")`
 — an opaque core, because `t.background` is translucent and the Moon's face must not be a hole.
+
+**`mods/artemis-pane`** (no `props`) is the shipped `pane` header with one change: its band takes
+`rounded_t` (or `rounded_b` when `header.position` is `"bottom"`) at `paneFrame(layout()).radius - 1`
+— the frame's radius read out of the layout, minus the 1 px border, so its arc is concentric with
+the frame's. Everything else is the shipped header unchanged: `props().pane` names its own pane,
+the icon and title and folder and status come from `panes()`, the hover buttons run `pane.split` /
+`pane.zoom` / `pane.close` on it, and the four icons live in its own folder (`mods/artemis-pane/*.svg`)
+so the mod travels alone. It exists because a mod's view is not clipped to the pane frame's radius:
+with the shipped header, the band's tint is a rectangle, and at radius 14 every pane corner keeps a
+14 px square of `theme().background` outside the arc.
 
 **`mods/sysmon`** (no `props`) is one
 `h_flex().size_full().items_center().justify_end().overflow_hidden()` with `.gap(10).px(12)` and
@@ -269,8 +283,9 @@ the two, a `div().w(1).h(11).bg(t.border)`. Parsing is three small regexes and o
 two data lines of `iostat`, and `vm_stat`'s `Pages active/wired down/occupied by compressor` plus the
 page size in its header.
 
-**Shipped mods used:** `spaces`, `agents`, `tabs`, `pane` (pane headers), `workspace-status`,
-`files`, `changes`. Nothing needs `keys.json`, `programs.json`, `settings.json` or a theme file:
+**Shipped mods used:** `spaces`, `agents`, `tabs`, `workspace-status`,
+`files`, `changes` — and `pane`, of which `mods/artemis-pane` is a two-line change. Nothing needs
+`keys.json`, `programs.json`, `settings.json` or a theme file:
 the look is all in the layout's root.
 
 **The art.** `backgrounds/artemis.jpg` is the whole NASA frame: 8256×5504 re-encoded at 4096×2731
@@ -313,12 +328,16 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 - **`chrome` is `#00000000` on purpose.** The bar paints `theme().chrome`, so a transparent chrome
   is what keeps its type on the photograph; the four plates name the literal `#070b1240` instead.
   Don't set `chrome` to the plate colour: the bar would grow a band across the top of the window.
-- **A plate's corner is its node's `radius`; the pane's is `content.pane.radius`.** The app clips
-  the frame's content — the header mod's tint and its 1 px rule, the terminal's paper — to the
-  rounded rect, and draws the `focus` border on the same arc, so a rounded pane needs no square
-  header. Measured on 0.1.15 by painting the pane opaque at `radius` 20: neither a square corner
-  nor a straight-ended divider shows outside the curve. Put the value in `content.pane`, not on
-  the node, or the frame stays square.
+- **A plate's corner is its node's `radius`; the pane's is `content.pane.radius`.** Put the value in
+  `content.pane`, not on the node, or the frame stays square.
+- **The pane frame clips its own fill, its focus border, the header's divider rule and the terminal's
+  paper — but not a header mod's own background.** Measured on 0.1.15: a mod's view is drawn square
+  on top of the frame's curve, so with the shipped `pane` header at radius 14 every pane keeps a
+  14 px square of `theme().background` outside the arc (64 there against 75 on the photograph beside
+  it, over a smooth backdrop) — a dark ear at the top of every pane. Don't square the pane to hide
+  it: round the band yourself (`rounded_t(radius - 1)`, `rounded_b` when the header sits at the
+  bottom), which is the one change `mods/artemis-pane` makes. The terminal's paper is a square too,
+  but it paints the same colour on both sides of the arc, so it never shows.
 - **The app may rewrite its own copy of this picture.** After a click it can set the app folder's
   `layouts/artemis.svg` `rx` values to the clicked radii (`3.11` = 14 px at 4.5 px per unit), the
   same pass that writes click radii into `layouts/artemis.json`. The repo's hand-drawn file is the
@@ -400,6 +419,7 @@ Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`, then:
 
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar           # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-pane          # exit 0
 herdr-app check ~/.config/herdr-app/mods/sysmon                # exit 0
 herdr-app do layout.switch --name artemis
 herdr-app status                                               # "layout": "artemis", "errors": []
@@ -412,8 +432,9 @@ herdr-app shot /tmp/artemis.png
   bars above and below (or either side) blend into the frame's own edge with no line to see;
 - the rail opens with `Spaces` at once — no title block, no credit; then `Agents`;
 - every plate is a round sheet: 14 px on the rail, the pane and the panel, 12 on the tab strip,
-  10 on the status bar, and the pane's header is two thin layers (20 % tint + a 1 px rule) clipped
-  to the frame's curve, not a square slab;
+  10 on the status bar, and the pane's header is two thin layers (20 % tint + a 1 px rule) whose
+  tint stops on the frame's curve — square the pane and split it, and no corner of the band shows
+  a right angle of tint outside the arc, top or bottom;
 - the bar shows the eclipse mark, `ARTEMIS` `II`, the active space with its branch (plus a folder and
   a named tab when they differ), and a UTC clock that advances every second — and nothing else;
 - a pane running a shell shows the picture behind its text (the Moon's limb, its craters and the

@@ -163,7 +163,7 @@
                       },
                       "header": {
                         "content": {
-                          "mod": "pane"
+                          "mod": "artemis-pane"
                         },
                         "height": 30,
                         "position": "top",
