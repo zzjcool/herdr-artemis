@@ -38,8 +38,10 @@ and the corona read straight through the text.
   space on another machine and the readings become that machine's. The mod never runs ssh and holds
   no key, and a machine that cannot answer draws nothing at all;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
-  minimise, maximise or close the window, and the pane header (`artemis-pane`) is the shipped
-  header with its band rounded to the frame; none of them, nor the monitor, touches the network.
+  minimise, maximise or close the window; the pane header (`artemis-pane`), the tab strip
+  (`artemis-tabs`) and the status bar's left half (`artemis-workspace-status`) are the shipped
+  mods with the one line changed that would otherwise draw a straight rule across a rounded
+  corner (§ *Watch out* in the recipe); none of them, nor the monitor, touches the network.
 
 **Install.** Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`
 (`backgrounds/artemis.jpg` is the ground — without it the window has no photograph),
@@ -48,13 +50,15 @@ check the mods, then switch:
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar
 herdr-app check ~/.config/herdr-app/mods/artemis-pane
+herdr-app check ~/.config/herdr-app/mods/artemis-tabs
+herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status
 herdr-app check ~/.config/herdr-app/mods/sysmon
 herdr-app do layout.switch --name artemis
 herdr-app status
 ```
 
 **[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
-the node tree, the three mods, the picture, and the one thing this layout cannot do.
+the node tree, the five mods, the picture, and the things this layout cannot do.
 
 The photograph is `art002e015967` from
 [nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US government

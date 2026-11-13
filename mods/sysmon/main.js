@@ -314,7 +314,6 @@ export default class Sysmon extends View {
       .overflow_hidden()
       .gap(10)
       .px(12)
-      .border_t(1)
       .border_l(1)
       .border_color(t.border)
       .child(

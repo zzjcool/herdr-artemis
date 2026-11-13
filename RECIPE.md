@@ -109,10 +109,11 @@ window — under the rail as well — 26 px tall, one gutter below the line the 
 end on. It is a `row` because its right end holds a second mod: `workspace-status` at `weight: 1`
 takes every pixel the monitor does not, so the palette hint stays where the shipped mod puts it —
 just left of the seam. The row is `resizable: false`: the seam is a 1 px rule, not a drag handle,
-and the monitor's 308 px cannot be moved by a stray press. The 25 % smoke and the
-1 px `#ffffff1f` rule are on the row; the seam is a 1 px rule the monitor draws on its own left edge,
-and both halves draw the same 1 px rule along their top edge, so the bar keeps the two thin layers
-it always had.
+and the monitor's 308 px cannot be moved by a stray press. The 25 % smoke and the whole
+1 px `#ffffff1f` rule are on the row — all four sides, so the plate's corners arc — and the seam is
+a second 1 px rule the monitor draws on its own left edge. Neither half draws a rule along its own
+top edge: the shipped `workspace-status` and the monitor both used to, and a mod's view is not
+clipped by the plate's radius, so that line squared the bar's corners (see *Watch out*).
 
 **System monitor — the bar's right end.** `CPU`, the percentage, a twelve-tick strip; a 1 px rule;
 `MEM`, `23.1/32G` — that machine's own total, so a 15G host reads `/15G` — and a strip of the same
@@ -214,6 +215,9 @@ backgrounds/artemis.jpg       the ground: the whole NASA frame, re-encoded
 mods/artemis-bar/             main.js, mod.json {"place":"none","title":"Artemis bar"}
 mods/artemis-pane/            main.js, mod.json {"place":"none","title":"Artemis pane header"},
                               close/zoom/unzoom/split-right/split-down.svg
+mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis tabs"},
+                              win-close/max/min/restore.svg (Windows buttons)
+mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
 
@@ -232,7 +236,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 │ │ └ agents  block weight 1  min 90  mod agents   (no fill)
 │ └ work      column gap 10  resizable false
 │   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
-│   │                    border {1,"#ffffff1f"}  mod tabs
+│   │                    border {1,"#ffffff1f"}  mod artemis-tabs
 │   └ work-body  row  gap 10
 │     ├ main  block  content {tab "active", pane {...}}
 │     └ panel column 340  min 280  max 900  hidden true  radius 14
@@ -240,7 +244,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 │       └ panel-body  stack  active "files"  children: files, changes
 └ status      row 26  gap 0  resizable false  radius 10
                        background "#070b1240"  border {1,"#ffffff1f"}
-  ├ status-workspace  block weight 1  mod workspace-status
+  ├ status-workspace  block weight 1  mod artemis-workspace-status
   └ status-sysmon     block 308  min 308  mod sysmon  (paints no fill)
 ```
 
@@ -272,9 +276,19 @@ so the mod travels alone. It exists because a mod's view is not clipped to the p
 with the shipped header, the band's tint is a rectangle, and at radius 14 every pane corner keeps a
 14 px square of `theme().background` outside the arc.
 
+**`mods/artemis-tabs`** and **`mods/artemis-workspace-status`** (no `props`) are the shipped `tabs`
+and `workspace-status` with one line removed each: `.border_b(1).border_color(t.border)` on the tab
+strip's row, `.border_t(1).border_color(t.border)` on the status bar's left half. Both draw a
+straight 1 px rule across the plate's full width at the very edge, and a mod's view escapes the
+block's radius — so each one squared a corner (measured: a lit row at y 196–197 from x 610 on the
+tab strip, y 4982–4983 from x 30 on the status bar, against a clean arc after). The rule is a
+duplicate anyway: both blocks carry `border {1,"#ffffff1f"}` in the layout, drawn by the frame and
+clipped. `artemis-tabs` also points its four Windows button icons at its own folder
+(`mods/artemis-tabs/win-*.svg`); everything else is byte-for-byte the shipped file.
+
 **`mods/sysmon`** (no `props`) is one
 `h_flex().size_full().items_center().justify_end().overflow_hidden()` with `.gap(10).px(12)` and
-`.border_t(1).border_l(1)` in `theme().border` — no background, so the plate stays the row's and the
+`.border_l(1)` in `theme().border` — no background, so the plate stays the row's and the
 bar reads as one sheet with a 1 px seam, and no overflow, so a squeezed block clips its own content
 rather than painting over its neighbour. It imports `View` and `div` from `gpui-kit`, `h_flex` from
 `gpui-base`, and `exec`, `settings`, `spaces`, `theme` from `herdr`. It samples on a
@@ -296,7 +310,10 @@ two data lines of `iostat`, and `vm_stat`'s `Pages active/wired down/occupied by
 page size in its header.
 
 **Shipped mods used:** `spaces`, `agents`, `tabs`, `workspace-status`,
-`files`, `changes` — and `pane`, of which `mods/artemis-pane` is a two-line change. Nothing needs
+`files`, `changes` — and three of them are forked for one line each: `pane` →
+`mods/artemis-pane` (the band's corner), `tabs` → `mods/artemis-tabs` and
+`workspace-status` → `mods/artemis-workspace-status` (a 1 px edge rule that would square a
+plate's corner, see *Watch out*). Everything else is used as shipped. Nothing needs
 `keys.json`, `programs.json`, `settings.json` or a theme file:
 the look is all in the layout's root.
 
@@ -373,6 +390,14 @@ the content, one for the footer, 10 px between them.
   (`rounded_t(radius - 1)`, `rounded_b` when the header sits at the bottom), which is the one change
   `mods/artemis-pane` makes, and keep the pane's floor in `content.pane.background`, which *is*
   clipped.
+- **A mod's 1 px edge rule is not clipped either, not even on a plate.** The shipped `tabs` draws
+  `.border_b(1)` and `workspace-status` `.border_t(1)` along their own full width, and a mod's view is
+  drawn square on top of the block's rounded border — so each left a straight lit row across a
+  corner, running out into the gutter (measured on 0.1.15: y 196–197 from x 610 under the tab strip,
+  y 4982–4983 from x 30 over the status bar; both clean arcs once the lines were dropped). The
+  blocks already carry `border {1,"#ffffff1f"}` in the layout and the frame clips that, so the mod's
+  rule was a duplicate: the forks `mods/artemis-tabs` and `mods/artemis-workspace-status` remove it,
+  and `mods/sysmon` lost its own `.border_t(1)` the same way.
 - **The terminal's paper is square, and the frame does not clip it.** That is why the layout runs
   `terminal_opacity` 0: at any alpha above 0 the paper squares every pane corner (numbers above).
   `terminal_padding` does not help — the paper is the terminal view's own background, padding
