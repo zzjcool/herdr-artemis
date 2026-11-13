@@ -412,18 +412,21 @@ narrow. That is the whole diff: the machine rows, folding, reconnecting, git tai
 are the shipped mod unchanged.
 
 **`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A row opens
-`mods/artemis-files-menu` as a pointer popup over it — `on_mouse_down("right", …)`, `cx.stop_propagation()`,
-the same one-liner `tabs` uses — and the panel, not the menu, does the copying: a popup is gone the
+`mods/artemis-files-menu` as a pointer popup over it — one line of `on_mouse_down("right", …)` calling
+a `menu()` method, the shape `tabs` and `spaces` open their menus with — and the panel, not the menu,
+does the copying: a popup is gone the
 moment it is clicked and cannot call back into its parent, so the menu leaves a request in
-`setShared("files.download", {name, path, dir, on, at})` and the panel's 500 ms timer takes it once,
-skipping anything older than 15 s, because shared state outlives the session and a stale request must
-not fire on launch. The menu holds two items: **Download file**/**Download folder** and **Copy path**
+`setShared("files.download", {name, path, dir, on, at})` and the panel's 500 ms timer takes it **once
+for the window** — it stamps `at: 0` back into shared state as it takes it, so a second Files panel,
+or this one reopened, sees a spent request rather than copying the same file twice — and skips
+anything older than 15 s, because shared state outlives the session and a stale request must not fire
+on launch. A request without a string `name` and `path` is ignored rather than obeyed. The menu holds two items: **Download file**/**Download folder** and **Copy path**
 (`pbcopy`, else `wl-copy`/`xclip`; `exec` has no stdin, so the path rides in as `$1`).
 
 A download goes to `~/Downloads` and never over an existing name — `report.pdf`, then
 `report (2).pdf` — by two routes, because two machines are two machines. **This computer**
-(`on === null`) is `cp -R`. **Another one** is `scp -q -o BatchMode=yes [-P port] [-r]
-user@host:<path> <dest>` with `timeout: 590000`, and `scp` rather than herdr-core's `exec({on})`
+(`on === null`) is `cp -R`. **Another one** is `scp -q -o BatchMode=yes -o ConnectTimeout=10 [-P port] [-r]
+user@host:<path> <dest>` with `timeout: 590000` (the API's ceiling is 600 000), and `scp` rather than herdr-core's `exec({on})`
 because that channel carries text and stops at 8 MiB: it would corrupt anything binary and refuse a
 video. The path goes to `scp` raw — since OpenSSH 9 it speaks sftp, so there is no remote shell to
 quote for and a space in a name is just a space (measured against all four machines here). The host
@@ -431,21 +434,32 @@ it dials is **not** the `on` name: `on` is what herdr-core calls a machine, `tar
 reached (`nj-host` is `nj-host-ts`, `devcloud` is `ssh://root@devcloud.zzj.cool:2222`), so
 `hc machine ls --json` is read once and cached, and the target is split into user/host/port — `scp`
 refuses the `ssh://` form outright (measured: `Connection closed`). `BatchMode=yes` because `exec`
-has no tty and a password prompt would only hang. A copy says what it is doing twice: a footer line
+has no tty and a password prompt would only hang. Both routes write to `<dest>.part` and `mv -f` it
+into place, so a copy killed by the timeout leaves a `.part` (deleted in a `finally`) instead of a
+truncated file under the real name — the failure the panel reports and the file the person opens stay
+the same fact. On Windows the same code takes its other branch: `Copy-Item -Recurse` and
+`Test-Path -LiteralPath` through PowerShell, because `cp`, `sh` and `mkdir -p` are not there — and a
+name it cannot ask about counts as taken, so the copy lands on `(2)` rather than on top of a file.
+If the person has not given Herdr access to `~/Downloads` (macOS asks, TCC), `mkdir -p` is what fails
+first and its message is what the footer shows. A copy says what it is doing twice: a footer line
 in the panel — `Downloading preview.png…`, then `Downloaded preview.png → Downloads/preview.png` in
 `ansi2`, or the error's last line in `blocked`, gone after 9 s — and `notify(...)`, the toast the
 rest of the window uses, because a copy can outlast a toast and a toast outlives a hidden panel.
-Measured: a remote file (`gpu:/root/space test.txt`), the same name again (`space test (2).txt`), a
-remote folder (`scp -r`, `/root/attic`), and a local file all landed in `~/Downloads` with
-`errors: []`.
+Fifty taken names in a row is no longer a collision: the copy then lands as
+`<epoch-ms>-<name>`, which is renamed rather than overwritten. `sshOf` reads the target forms
+herdr-core writes — `host`, `user@host[:port]`, `ssh://user@host:port` — and anything else (an IPv6
+literal, a URI with a path) falls back to the whole string as the host rather than guessing.
 
-**Shipped mods used:** `spaces`, `agents`, `tabs`, `workspace-status`,
-`changes` — and five of them are forked: `pane` → `mods/artemis-pane` (the band's
-corner), `tabs` → `mods/artemis-tabs` and `workspace-status` →
-`mods/artemis-workspace-status` (a 1 px edge rule that would square a plate's corner, see
-*Watch out*), `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine), and
-`files` → `mods/artemis-files` (right-click download).
-Everything else is used as shipped. Nothing needs
+Measured: a remote file (`gpu:/root/space test.txt`), the same name again (`space test (2).txt`),
+a remote folder (`scp -r`, `/root/attic`), a local file, and — after the `.part` staging — a second
+copy of one name landing beside the first (`PI-SYNC-MANIFEST (2).md`) with the first untouched, no
+`.part` left behind, and shared state reading `at: 0`. `errors: []` throughout.
+
+**Shipped mods used:** `agents`, `changes`, and five the layout shows through a fork —
+`pane` → `mods/artemis-pane` (the band's corner), `tabs` → `mods/artemis-tabs` and
+`workspace-status` → `mods/artemis-workspace-status` (a 1 px edge rule that would square a plate's
+corner, see *Watch out*), `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine),
+`files` → `mods/artemis-files` (right-click download). Everything else is used as shipped. Nothing needs
 `keys.json`, `programs.json`, `settings.json` or a theme file:
 the look is all in the layout's root.
 
@@ -643,7 +657,11 @@ Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`, then:
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar           # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-pane          # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-tabs          # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status  # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-spaces        # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-files         # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-files-menu    # exit 0
 herdr-app check ~/.config/herdr-app/mods/sysmon                # exit 0
 herdr-app do layout.switch --name artemis
 herdr-app status                                               # "layout": "artemis", "errors": []
@@ -680,4 +698,8 @@ herdr-app shot /tmp/artemis.png
 - dragging the bar moves the window, dragging the rail's edge resizes it, and no press that
   starts on a control ever does either;
 - the tab bar's Files button opens a 340 px panel on the right and nothing else moves;
+- right-click a row in that panel: a two-item popup, `Download file` (or `Download folder`) with
+  `~/Downloads` at its right end, and `Copy path`; taking the first puts the file in `~/Downloads`,
+  the panel's footer says `Downloaded … → Downloads/…` for 9 s and the window's toast says it too —
+  and from a space on another machine the file arrives whole, not the first 8 MiB of it;
 - `ctrl-shift-l` returns to the person's other layouts.

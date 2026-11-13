@@ -9,7 +9,6 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { closeOverlay, exec, notify, props, setShared, theme } from "herdr";
 
-const ICON = { download: "mods/artemis-files-menu/download.svg", copy: "mods/artemis-files-menu/copy.svg" };
 const SELF = "mods/artemis-files-menu";
 
 export default class FilesMenu extends View {

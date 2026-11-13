@@ -66,13 +66,15 @@ herdr-app check ~/.config/herdr-app/mods/artemis-pane
 herdr-app check ~/.config/herdr-app/mods/artemis-tabs
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status
 herdr-app check ~/.config/herdr-app/mods/artemis-spaces
+herdr-app check ~/.config/herdr-app/mods/artemis-files
+herdr-app check ~/.config/herdr-app/mods/artemis-files-menu
 herdr-app check ~/.config/herdr-app/mods/sysmon
 herdr-app do layout.switch --name artemis
 herdr-app status
 ```
 
 **[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
-the node tree, the six mods, the picture, and the things this layout cannot do.
+the node tree, the eight mods, the picture, and the things this layout cannot do.
 
 The photograph is `art002e015967` from
 [nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US government

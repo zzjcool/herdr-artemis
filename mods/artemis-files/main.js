@@ -4,7 +4,7 @@
 // the menu: the menu is a popup and is gone the moment it is clicked.
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState } from "gpui-base";
-import { spaces, panes, focused, exec, hc, home, notify, openOverlay, readTextFile, shared, watchFolder, theme, settings, window } from "herdr";
+import { spaces, panes, focused, exec, hc, home, notify, openOverlay, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -21,6 +21,13 @@ const DOWNLOADS = "Downloads", PICKUP = 15000, SHOWN = 9000, SSH_TIMEOUT = 59000
 // which is a different string (`nj-host` is reached as `nj-host-ts`). A target is an
 // ssh-config host, `user@host[:port]`, or `ssh://user@host:port` — scp refuses the
 // last form (measured: "Connection closed"), so it is split here.
+const lastLine = (text) => String(text ?? "").trim().split("\n").filter(Boolean).pop() ?? "";
+
+// A folder path as a command that takes paths (not a shell) needs it: `cp` has no idea
+// what `~` means.
+const expanded = (path) => (path === "~" ? home() : path.startsWith("~/") ? `${home()}/${path.slice(2)}` : path);
+const quoted = (path) => `'${String(path).replace(/'/g, "''")}'`;
+
 function sshOf(target) {
   const m = /^(?:ssh:\/\/)?(?:([^@/]+)@)?([^:/]+?)(?::(\d+))?\/?$/.exec(String(target));
   return m ? { user: m[1] ?? null, host: m[2], port: m[3] ?? null } : { user: null, host: String(target), port: null };
@@ -171,45 +178,86 @@ export default class Files extends View {
     });
   }
 
-  // One request, taken once, and the last word on the copy taken away again. Anything
-  // older than PICKUP belongs to a window that is gone — shared state outlives the
-  // session — so it is dropped rather than obeyed.
+  // One request, taken once for the *window* rather than once per panel: it is stamped
+  // `at: 0` in shared state the moment it is taken, so a second Files panel — or this one
+  // reopened — sees it as already spent. Anything older than PICKUP belongs to a window
+  // that is gone, because shared state outlives the session; it is dropped, not obeyed.
   drain(cx) {
     const request = shared("files.download");
-    if (request && request.at && request.at !== this.picked) {
-      this.picked = request.at;
+    if (request && request.at && typeof request.path === "string" && typeof request.name === "string") {
+      setShared("files.download", { ...request, at: 0 });
       if (Date.now() - request.at < PICKUP) this.transfer(request, cx);
     }
-    if (this.status && Date.now() - this.status.at > SHOWN) { this.status = null; cx.notify(); }
+    if (this.status && !this.busy && Date.now() - this.status.at > SHOWN) {
+      this.status = null;
+      this.touch(cx);
+    }
   }
 
   // Said in the panel's own footer, not only in a toast: a copy can outlast the toast's
   // few seconds, and the panel is where the person is looking.
   say(text, tone, cx) {
     this.status = { text, tone, at: Date.now() };
-    cx.notify();
+    this.touch(cx);
+  }
+
+  // The panel can be gone by the time a copy lands, and a redraw asked of a dead context
+  // throws into an async void.
+  touch(cx) {
+    try { cx.notify(); } catch { /* nothing left to draw */ }
   }
 
   async transfer(request, cx) {
     const folder = `${home()}/${DOWNLOADS}`;
+    this.busy = true;
     this.say(`Downloading ${request.name}…`, "dim", cx);
+    // Through a `.part` name: a copy killed by the timeout would otherwise leave a
+    // truncated file under the real name, and the panel would have said it failed.
+    let temp = null;
     try {
-      await exec("mkdir", ["-p", folder]).catch(() => null);
+      await this.make(folder);
       const dest = await this.destination(request, folder);
-      const result = request.on
-        ? await this.pull(request, dest)
-        : await exec("cp", ["-R", request.path, dest], { timeout: SSH_TIMEOUT });
-      if (result.code !== 0) throw new Error((result.stderr ?? "").trim().split("\n").pop() || `exit ${result.code}`);
+      temp = `${dest}.part`;
+      const result = request.on ? await this.pull(request, temp) : await this.copyLocal(request, temp);
+      if (result.code !== 0) throw new Error(lastLine(result.stderr) || `exit ${result.code}`);
+      const moved = await exec("mv", ["-f", temp, dest]);
+      if (moved.code !== 0) throw new Error(lastLine(moved.stderr) || "cannot put the copy in place");
+      temp = null;
       const where = `${DOWNLOADS}/${dest.slice(folder.length + 1)}`;
       this.say(`Downloaded ${request.name} → ${where}`, "done", cx);
       notify({ title: "Downloaded", body: `${request.name} → ${where}`, level: "success" });
     } catch (e) {
-      this.say(`Cannot download ${request.name}: ${String(e).split("\n")[0]}`, "error", cx);
-      notify({ title: "Download failed", body: String(e).split("\n")[0], level: "error" });
+      const why = lastLine(e?.message ?? e) || "unknown error";
+      this.say(`Cannot download ${request.name}: ${why}`, "error", cx);
+      notify({ title: "Download failed", body: why, level: "error" });
+    } finally {
+      if (temp) await exec("rm", ["-f", temp]).catch(() => null);
+      this.busy = false;
     }
   }
 
-  // Never overwrite what is already there: `report.pdf`, then `report (2).pdf`.
+  async make(folder) {
+    const r = window()?.platform === "windows"
+      ? await exec("powershell", ["-NoProfile", "-Command", `New-Item -ItemType Directory -Force -Path ${quoted(folder)} | Out-Null`]).catch(() => null)
+      : await exec("mkdir", ["-p", folder]).catch(() => null);
+    // Not fatal on its own: the copy that follows says why more precisely. It is the
+    // macOS permission dialog on `~/Downloads` that fails here first.
+    if (r && r.code !== 0) throw new Error(lastLine(r.stderr) || `cannot make ${DOWNLOADS}`);
+  }
+
+  // `cp -R` where there is a shell; `Copy-Item` on Windows, which has neither `cp` nor
+  // `sh` (the shipped mod carries the same split for its folder listing).
+  async copyLocal(request, dest) {
+    if (window()?.platform !== "windows") return exec("cp", ["-R", expanded(request.path), dest], { timeout: SSH_TIMEOUT });
+    const cmd = request.dir
+      ? `Copy-Item -LiteralPath ${quoted(expanded(request.path))} -Destination ${quoted(dest)} -Recurse -Force`
+      : `Copy-Item -LiteralPath ${quoted(expanded(request.path))} -Destination ${quoted(dest)} -Force`;
+    return exec("powershell", ["-NoProfile", "-Command", cmd], { timeout: SSH_TIMEOUT });
+  }
+
+  // Never overwrite what is already there: `report.pdf`, then `report (2).pdf`. A name
+  // that cannot be asked about counts as taken — the copy then lands on `(2)` rather
+  // than on top of something.
   async destination(request, folder) {
     const dot = request.dir ? -1 : request.name.lastIndexOf(".");
     const base = dot > 0 ? request.name.slice(0, dot) : request.name;
@@ -218,12 +266,18 @@ export default class Files extends View {
       const path = `${folder}/${i === 1 ? request.name : `${base} (${i})${ext}`}`;
       if (!(await this.present(path))) return path;
     }
+    // Fifty taken names in a row is no longer a collision; make one that cannot be.
     return `${folder}/${Date.now()}-${request.name}`;
   }
 
   async present(path) {
+    if (window()?.platform === "windows") {
+      const r = await exec("powershell", ["-NoProfile", "-Command", `Test-Path -LiteralPath ${quoted(path)}`]).catch(() => null);
+      if (!r) return true;
+      return (r.stdout ?? "").trim().toLowerCase() === "true";
+    }
     const r = await exec("sh", ["-c", 'test -e "$1"', "files", path]).catch(() => null);
-    return Boolean(r) && r.code === 0;
+    return r ? r.code === 0 : true;
   }
 
   // Over the local ssh rather than herdr-core's channel: that one carries text and
@@ -239,13 +293,21 @@ export default class Files extends View {
     return exec("scp", argv, { timeout: SSH_TIMEOUT });
   }
 
+  // herdr-core names machines; ssh needs their `target`, a different string. A core that
+  // cannot answer leaves the cache unset so the next copy asks again, and a machine that
+  // is only a name here falls back to that name (an ssh-config alias).
   async target(name) {
     if (!this.targets) {
-      this.targets = {};
       const r = await hc(["machine", "ls", "--json"]).catch(() => null);
-      try { for (const m of JSON.parse(r?.stdout ?? "{}").machines ?? []) this.targets[m.name] = m.target; } catch { /* the name may already be reachable */ }
+      if (r?.code === 0) {
+        const map = {};
+        try {
+          for (const m of JSON.parse(r.stdout ?? "{}").machines ?? []) if (!m.temporary) map[m.name] = m.target;
+        } catch { /* the cache stays empty and the name is used as it is */ }
+        this.targets = Object.keys(map).length ? map : null;
+      }
     }
-    return this.targets[name] ?? name;
+    return this.targets?.[name] ?? name;
   }
 
   rows(prefix, depth, out, t) {
