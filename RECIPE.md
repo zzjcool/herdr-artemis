@@ -111,7 +111,7 @@ window — under the rail as well — 26 px tall, one gutter below the line the 
 end on. It is a `row` because its right end holds a second mod: `workspace-status` at `weight: 1`
 takes every pixel the monitor does not, so the palette hint stays where the shipped mod puts it —
 just left of the seam. The row is `resizable: false`: the seam is a 1 px rule, not a drag handle,
-and the monitor's 308 px cannot be moved by a stray press. The 25 % smoke and the whole
+and the monitor's 480 px cannot be moved by a stray press. The 25 % smoke and the whole
 1 px `#ffffff1f` rule are on the row — all four sides, so the plate's corners arc — and the seam is
 a second 1 px rule the monitor draws on its own left edge. Neither half draws a rule along its own
 top edge: the shipped `workspace-status` and the monitor both used to, and a mod's view is not
@@ -238,8 +238,8 @@ keeps trying once a minute instead of every tick.
 
 **The rail shows every machine's reading.** Under each machine's name in the space list — `This
 computer`, `devcloud`, `gpu`, `nj-host`, `nj-hw` — one 17 px line: `CPU 42%` and `MEM 78%` with a
-twelve-tick strip each (1 px ticks, 7 px tall) and `↓379K ↑67K` after them, at 8.5–10 px,
-indented 29 px so it hangs under the name rather than under the icon. It speaks the bar's language —
+twelve-tick strip each (1 px ticks, 7 px tall) and `↓379K ↑67K` after them, 9.5 px for the rates
+and 10 px for the values, indented 29 px so it hangs under the name rather than under the icon. It speaks the bar's language —
 the same chip and module glyphs at 11 px instead of the words, the same mono face, the same padding
 behind the text — and the whole line is **left-aligned**: the rates used to be pushed against the
 rail's edge with `flex_1` + `justify_end`, which made the gap between `MEM` and `↓` breathe with the
@@ -373,7 +373,8 @@ machine): macOS `sysctl -n hw.memsize hw.pagesize` (cached per machine) and then
 reading `head -1 /proc/stat`, `/proc/meminfo` and `grep`ped `/proc/net/dev` — no sleep, the CPU is
 the difference from the previous sample. Every call carries `{ on: machine }`, so it runs through
 herdr-core on that machine — the mod never runs ssh itself. Each metric is a
-label (`w(24)`, 9 px, `dim`), a value (`h_flex().w(34 | 58 | 74).justify_end()` around a 11.5 px
+glyph (`svg(icon).size(12)`, `dim` — or nothing at all for the network), a value
+(`h_flex().w(32 | 66 | 80).justify_end()` around a 11.5 px
 `div()` in the person's mono face, `muted` while the reading is live and `dim` once it is not) and a
 strip: `h_flex().gap(2).h(11).items_end()` over twelve `div().w(2)` ticks whose height is
 `1 + round(v / scale) × 10` px, the newest one `accent` (`unknown` when stale) and the rest `idle`.
@@ -386,10 +387,10 @@ own window (floor 4 KB/s), the others 100. Parsing: the last of two data lines o
 rail's reading too.
 
 **`mods/artemis-spaces`** (no `props`) is the shipped `spaces` plus one method and one element: under
-each machine's header row, `stats(m, t)` draws `shared("sysmon.machines").hosts[m ?? ""]` — `CPU 42%`
-and `MEM 78%` with a twelve-tick strip each (1 px ticks, `MINI_BAR` 7 px) and `↓379K ↑67K` at the
-right end — or returns `null` when that machine has no reading yet, so an unsampled host gets no line
-rather than an empty one. It is indented `pl(29)` to hang under the name, and skipped when the rail is
+each machine's header row, `stats(m, t)` draws `shared("sysmon.machines").hosts[m ?? ""]` — the
+chip glyph and `42%`, the module and `78%`, a twelve-tick strip after each (1 px ticks, `MINI_BAR`
+7 px), then `↓379K ↑67K` inline — or returns `null` when that machine has no reading yet, so an
+unsampled host gets no line rather than an empty one. It is indented `pl(29)` to hang under the name, and skipped when the rail is
 narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
 are the shipped mod unchanged.
 
@@ -522,9 +523,10 @@ the content, one for the footer, 10 px between them.
   whatever disks stand before them.
 - **The machine is the active space's, not the focused pane's.** Every tab and split of a space
   lives on that space's machine, so `spaces().find((s) => s.active).machine` is the one the bar is
-  about; the left end of the bar names it. On a switch the old reading is dropped before the new one
-  arrives, and `gen` throws away a sample that lands after the switch — otherwise a slow host would
-  paint its numbers over the new machine's.
+  about; the left end of the bar names it. A late answer cannot paint itself over the wrong machine:
+  every sample is written into `hosts[key]` and `render()` reads `hosts[keyOf(current())]`, so a
+  slow host's numbers land in its own record and the bar simply keeps showing `—` until the new
+  machine answers.
 - **Two dialects; a third system draws nothing.** macOS answers with `iostat`/`vm_stat`/`sysctl`,
   Linux with two reads of `/proc/stat` a second apart plus `/proc/meminfo` in one `sh -c`. `uname -s`
   picks, once per machine, and the answer is cached — but a *failure* is not cached, so a host that
@@ -544,17 +546,24 @@ the content, one for the footer, 10 px between them.
   would read a machine as dead that is answering fine. Keep the `n`.
 - **`vm_stat`'s page size is 16384 on Apple Silicon and 4096 on Intel** — read it from the header
   (`page size of N bytes`); assuming 16384 reports memory 4× off on an Intel Mac.
-- **The block is 480 px for 461 px of content.** 1 px border + 2 × 12 px padding + 396 px
-  (CPU `12 + 7 + 32 + 7 + 46`, then `10 + 1 + 10`, then MEM `12 + 7 + 66 + 7 + 46`, then
-  `10 + 1 + 10`, then NET `0 + 7 + 80 + 7 + 46`) + 40 px of gaps = 461; the spare pixels are
-  `justify_end`'s slack, so nothing is stretched. The widths are the padded strings' own width in
+- **The block is 480 px for 442 px of content**, 38 px of `justify_end` slack. The container is
+  `.gap(10).px(12).border_l(1)` over five children, so: 1 px rule + 24 px padding + 40 px of gaps
+  (four of them, 10 px each) + CPU `12 + 7 + 32 + 7 + 46 = 104` + MEM `12 + 7 + 66 + 7 + 46 = 138`
+  + NET `80 + 7 + 46 = 133` + 2 × 1 px rules between the metrics. Count the gaps **once**: the
+  `10 + 1 + 10` you see between two metrics *is* the container's `gap(10)` on either side of the
+  1 px rule, not a separate line item to add a second time. NET has no glyph, so it has one gap and
+  not two. The widths are the padded strings' own width in
   the mono face (~6.9 px a character), not a round number: change the padding and both the `width`
   here and the layout's `px` have to follow — a short block clips the CPU glyph on the left, not on
   the right.
 - **The `status` row is `resizable: false`, and that is load-bearing.** Rows are draggable at their
   boundaries by default, so without it the seam is a handle that can squeeze the monitor under its
-  461 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
+  442 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
   `min: 480` as a second guard.
+- **`padEnd` pads, it does not clip.** `memory()` is nine characters up to a ~1000 GiB total; past
+  that (`1000/1024G`, `1024/2048G`) it returns ten and the string overruns its 66 px cell, pushing
+  the strip that follows. Nothing breaks — the box keeps its width — but the column stops lining up.
+  There is no 1 TiB host today, and the fix if one arrives is a wider cell, not a shorter string.
 - **`herdr-app check` proves little about this mod.** `render()` returns an empty `div()` until a
   sample has landed, so the check exercises `init`'s two timers and that empty block — and no program
   at all, since the samples start on the timer; the numbers and their strips are built only in the
