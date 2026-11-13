@@ -36,7 +36,7 @@
 // window, because a link has no ceiling worth drawing against. Heights are
 // 1–11 px, so a quiet machine is a line of short ticks and a busy one is a comb.
 
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, machines, setShared, settings, spaces, theme } from "herdr";
 
@@ -194,7 +194,7 @@ function linuxNet(text) {
 // Every number is padded to a fixed number of characters: the values are drawn in
 // a mono face, so a "7 %" and a "100 %" stand in the same columns and the strip
 // beside them never shifts.
-const pad = (text, width) => String(text).padStart(width);
+const pad = (text, width) => String(text).padEnd(width);
 
 // "23.2/32G", or "97/128G" once the total needs three digits to be useful — always
 // nine characters, so `3.8/15G` and `29.4/62G` line up.
@@ -202,7 +202,7 @@ function memory(used, total) {
   const u = used / GIB;
   const t = total / GIB;
   const left = t >= 100 ? `${Math.round(u)}` : u.toFixed(1);
-  return `${pad(left, 4)}/${pad(Math.round(t), 3)}G`;
+  return pad(`${left}/${Math.round(t)}G`, 9);
 }
 
 // A rate without a unit of time: the label says NET, and "/s" twice per line is
@@ -217,7 +217,10 @@ function rate(bps) {
 
 // `↓ 65K ↑157K`: each rate in its own four-character cell, so the arrows stand
 // still while the numbers grow and shrink.
-const pair = (inBps, outBps) => `↓${pad(rate(inBps), 4)} ↑${pad(rate(outBps), 4)}`;
+const pair = (inBps, outBps) => {
+  const cell = (v) => pad(typeof v === "number" ? rate(v) : v, 4);
+  return `↓${cell(inBps)} ↑${cell(outBps)}`;
+};
 
 const ZEROS = new Array(TICKS).fill(0);
 
@@ -481,12 +484,15 @@ export default class Sysmon extends View {
     return div().w(2).h(1 + Math.round(p * (BAR - 1))).bg(newest ? now : t.idle);
   }
 
-  metric(t, { label, value, history, width, mono, color, now, scale }) {
+  // The metric's name is an icon, not a word: two glyphs in the bar's dim ink say
+  // what "CPU" and "MEM" said, in half the width. NET needs none — its value is
+  // two arrows.
+  metric(t, { icon, value, history, width, mono, color, now, scale }) {
     return h_flex()
       .flex_none()
       .gap(7)
       .items_center()
-      .child(div().flex_none().w(24).text_size(9).text_color(t.dim).child(label))
+      .when(Boolean(icon), el => el.child(svg(icon).size(12).flex_none().text_color(t.dim)))
       .child(
         // Right-aligned in a fixed box, so the % and the G land in the same
         // column on every sample and the sparkline never shifts.
@@ -547,8 +553,8 @@ export default class Sysmon extends View {
       .child(
         this.metric(t, {
           ...shared,
-          label: "CPU",
-          value: host.cpuKnown ? `${pad(last(host.cpu), 3)}%` : "  —%",
+          icon: "mods/sysmon/cpu.svg",
+          value: host.cpuKnown ? pad(`${last(host.cpu)}%`, 4) : pad("—%", 4),
           history: host.cpu.length ? host.cpu : ZEROS,
           width: 32,
         }))
@@ -556,7 +562,7 @@ export default class Sysmon extends View {
       .child(
         this.metric(t, {
           ...shared,
-          label: "MEM",
+          icon: "mods/sysmon/mem.svg",
           value: memory(host.used, host.total),
           history: host.mem.length ? host.mem : ZEROS,
           width: 66,
@@ -565,8 +571,7 @@ export default class Sysmon extends View {
       .child(
         this.metric(t, {
           ...shared,
-          label: "NET",
-          value: host.netKnown ? pair(host.inBps, host.outBps) : "↓   — ↑   —",
+          value: pair(host.netKnown ? host.inBps : "—", host.netKnown ? host.outBps : "—"),
           history: host.net.length ? host.net : ZEROS,
           width: 80,
           scale: net,

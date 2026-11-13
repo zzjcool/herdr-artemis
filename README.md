@@ -34,13 +34,14 @@ and the corona read straight through the text.
   machine the shown space lives on — this computer, or the host that space's terminals run on, read
   over the connection Herdr already keeps to it (`uname`, `sysctl`, `iostat`, `vm_stat`,
   `netstat -ib` on macOS; one `sh -c` over `/proc` on Linux — all read-only queries), a number and a
-  twelve-tick sparkline each, read every second; the network reads `↓1.2M ↑96K` bytes a
-  second, and the strips keep 36 s of trend. Every machine with a space is sampled in the
+  twelve-tick sparkline each, read every second; CPU and memory are named by a chip and a memory
+  module rather than by two words, the network reads `↓1.2M ↑96K` bytes a second, every number is
+  padded to a fixed width so no column shifts as it changes, and the strips keep 36 s of trend. Every machine with a space is sampled in the
   background, so switching to another host shows its numbers at once instead of starting from nothing. The mod never runs ssh and holds no
   key, and a machine that cannot answer goes quiet rather than drawing a guess;
-- **the same reading in the rail**: under each machine's name in the space list, one line —
-  `CPU 42%`, `MEM 78%` and `↓379K ↑67K`, each with its own sparkline — so the health of every host
-  is one glance away, without switching to a space on it;
+- **the same reading in the rail**: under each machine's name in the space list, one left-aligned
+  line — the same two glyphs, `42%` and `78%`, then `↓379K ↑67K`, each metric with its own
+  sparkline — so the health of every host is one glance away, without switching to a space on it;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
   minimise, maximise or close the window; the pane header (`artemis-pane`), the tab strip
   (`artemis-tabs`), the status bar's left half (`artemis-workspace-status`) and the space list

@@ -250,9 +250,9 @@
           "id": "status-sysmon",
           "type": "block",
           "size": {
-            "px": 512
+            "px": 480
           },
-          "min": 512,
+          "min": 480,
           "content": {
             "mod": "sysmon"
           }
