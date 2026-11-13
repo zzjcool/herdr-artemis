@@ -15,8 +15,9 @@ header, its divider and the terminal's paper to that curve, so nothing square po
 The status bar's right end carries a small system monitor: the CPU and memory of the machine the
 shown space lives on — this computer, or the host that space's terminals run on — a number and a
 twelve-tick sparkline each, sampled every three seconds. It reads them over the connection Herdr
-already has (`exec(…, {on})`, i.e. herdr-core on that machine), so no shell, no key handling and no
-network of the mod's own.
+already has (`exec(…, {on})`, i.e. herdr-core on that machine): no ssh, no key handling, no network
+of the mod's own — only read-only queries run there (`uname`, `sysctl`, `iostat`, `vm_stat` on macOS;
+one `sh -c` over `/proc` on Linux).
 
 ![Artemis](preview.png)
 
@@ -107,7 +108,7 @@ twelve ticks. Labels are 9 px `dim` `#828d9c`; numbers are
 fixed boxes — 34 px for the percentage, 58 px for the memory — so `%` and `G` stand in the same
 column on every sample and the strips never shift. A strip is twelve 2 px ticks 2 px apart, 1–11 px
 tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in `accent` `#e9d8b9`, so the
-right edge of a strip is “now”. Nothing rounds, nothing fills: the ticks sit straight on the plate.
+right edge of a strip is “now”. The ticks carry no radius and no fill: they sit straight on the plate.
 
 **Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
 `#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`

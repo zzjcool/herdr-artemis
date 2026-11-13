@@ -29,8 +29,9 @@ text.
   photograph needs a floor;
 - **a system monitor at the right end of the status bar**: the CPU and memory of the machine the
   shown space lives on — this computer, or the host that space's terminals run on, read over the
-  connection Herdr already keeps to it (`iostat`/`vm_stat` on macOS, `/proc` on Linux, all
-  read-only), a number and a twelve-tick sparkline each, sampled every three seconds; switch to a
+  connection Herdr already keeps to it (`uname`, `sysctl`, `iostat`, `vm_stat` on macOS; one
+  `sh -c` over `/proc` on Linux — all read-only queries), a number and a twelve-tick sparkline
+  each, sampled every three seconds; switch to a
   space on another machine and the readings become that machine's. The mod never runs ssh and holds
   no key, and a machine that cannot answer draws nothing at all;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
