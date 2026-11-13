@@ -35,7 +35,8 @@ function place(s, ps) {
 const rowHeight = ({ tree }) => (tree ? 28 : 30);
 const RAIL_CELL = 32;
 const MINI_BAR = 7;   // px: the tallest tick in the rail's sparkline
-const MINI_H = 17;    // px: the height reserved under a machine's name
+const MINI_H = 17;    // px: the line reserved under a machine's name
+const PL = 8;         // px: that line starts where the header's own icon starts
 const railCell = (el) => h_flex().flex_none().justify_center().child(el);
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
@@ -337,7 +338,7 @@ export default class Spaces extends View {
     const pair = host.netKnown
       ? `↓${pad(rate(host.inBps), 4)} ↑${pad(rate(host.outBps), 4)}`
       : "↓   — ↑   —";
-    return h_flex().id(`machine-stats-${m ?? "local"}`).h(MINI_H).flex_none().pl(29).pr(6).gap(8).items_center()
+    return h_flex().id(`machine-stats-${m ?? "local"}`).h(MINI_H).flex_none().pl(PL).pr(6).gap(8).items_center()
       .child(metric("cpu", pad(`${last(host.cpu)}%`, 4), host.cpu))
       .child(metric("mem", pad(`${last(host.mem)}%`, 4), host.mem))
       .child(div().flex_none().font_family(mono).text_size(9.5).text_color(ink).child(pair));

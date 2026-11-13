@@ -239,7 +239,9 @@ keeps trying once a minute instead of every tick.
 **The rail shows every machine's reading.** Under each machine's name in the space list — `This
 computer`, `devcloud`, `gpu`, `nj-host`, `nj-hw` — one 17 px line: `CPU 42%` and `MEM 78%` with a
 twelve-tick strip each (1 px ticks, 7 px tall) and `↓379K ↑67K` after them, 9.5 px for the rates
-and 10 px for the values, indented 29 px so it hangs under the name rather than under the icon. It speaks the bar's language —
+and 10 px for the values. The line starts **flush with the machine header**, at its icon's own left edge
+(`pl(8)`), not under the name: an indent there reads as leftover space, and the header is the thing
+the line belongs to. It speaks the bar's language —
 the same chip and module glyphs at 11 px instead of the words, the same mono face, the same padding
 behind the text — and the whole line is **left-aligned**: the rates used to be pushed against the
 rail's edge with `flex_1` + `justify_end`, which made the gap between `MEM` and `↓` breathe with the
@@ -390,7 +392,8 @@ rail's reading too.
 each machine's header row, `stats(m, t)` draws `shared("sysmon.machines").hosts[m ?? ""]` — the
 chip glyph and `42%`, the module and `78%`, a twelve-tick strip after each (1 px ticks, `MINI_BAR`
 7 px), then `↓379K ↑67K` inline — or returns `null` when that machine has no reading yet, so an
-unsampled host gets no line rather than an empty one. It is indented `pl(29)` to hang under the name, and skipped when the rail is
+unsampled host gets no line rather than an empty one. It is indented `pl(8)`, which puts its first glyph on the
+same pixel as the machine header's icon — measured at x = 64 in a 2× shot for both — and skipped when the rail is
 narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
 are the shipped mod unchanged.
 
