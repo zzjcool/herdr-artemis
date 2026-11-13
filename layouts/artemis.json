@@ -114,7 +114,7 @@
             "width": 1,
             "color": "#ffffff1f"
           },
-          "radius": 0
+          "radius": 14
         },
         {
           "id": "work",
@@ -137,7 +137,7 @@
                 "width": 1,
                 "color": "#ffffff1f"
               },
-              "radius": 0
+              "radius": 12
             },
             {
               "id": "work-body",
@@ -151,7 +151,7 @@
                     "tab": "active",
                     "pane": {
                       "gap": 10,
-                      "radius": 0,
+                      "radius": 14,
                       "lone": true,
                       "border": {
                         "width": 1,
@@ -209,7 +209,7 @@
                     "width": 1,
                     "color": "#ffffff1f"
                   },
-                  "radius": 0
+                  "radius": 14
                 }
               ]
             },
@@ -226,7 +226,7 @@
                 "width": 1,
                 "color": "#ffffff1f"
               },
-              "radius": 0,
+              "radius": 10,
               "children": [
                 {
                   "id": "status-workspace",

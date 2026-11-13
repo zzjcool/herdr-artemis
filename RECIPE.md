@@ -8,14 +8,16 @@ border colour (`#030304`), so the empty part of the window is not a bar but the 
 running out of stars. Nothing is filled flat: the rail, the tab strip, the status bar and the
 panel are 25 % smoke, the pane and everything else take a 20 % tint, so the sky, the disc and its corona sit
 behind the whole interface — and a terminal's paper is 25 % smoke, so the Moon's limb, its
-craters and the corona read straight through the text. Every plate is a right angle: nothing
-rounds a corner the photograph does not.
+craters and the corona read straight through the text. Every plate carries a corner — 14 px on the
+rail, the pane and the panel, 12 on the tab strip, 10 on the status bar — and the frame clips its
+header, its divider and the terminal's paper to that curve, so nothing square pokes out of it.
 
 The status bar's right end carries a small system monitor: the CPU and memory of the machine the
 shown space lives on — this computer, or the host that space's terminals run on — a number and a
 twelve-tick sparkline each, sampled every three seconds. It reads them over the connection Herdr
-already has (`exec(…, {on})`, i.e. herdr-core on that machine), so no shell, no key handling and no
-network of the mod's own.
+already has (`exec(…, {on})`, i.e. herdr-core on that machine): no ssh, no key handling, no network
+of the mod's own — only read-only queries run there (`uname`, `sysctl`, `iostat`, `vm_stat` on macOS;
+one `sh -c` over `/proc` on Linux).
 
 ![Artemis](preview.png)
 
@@ -47,21 +49,23 @@ transparent `chrome` is what keeps the bar's type on the photograph instead of o
 top of the window. Every plate that *should* be visible names the literal `#070b1240` instead.
 
 **The four plates** carry the sturdier version of the same smoke — the literal `#070b1240`
-(25 % of `#070b12`) with a `1px` border of `#ffffff1f`, and **no radius**:
+(25 % of `#070b12`) with a `1px` border of `#ffffff1f`, and a corner:
 
-| plate | size |
-|---|---|
-| `sidebar` (the rail) | 292 px, `min` 220, `max` 420 |
-| `tabs` | 38 px tall, `window_drag: true` |
-| `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 308 px |
-| `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` |
+| plate | size | radius |
+|---|---|---|
+| `sidebar` (the rail) | 292 px, `min` 220, `max` 420 | 14 |
+| `tabs` | 38 px tall, `window_drag: true` | 12 |
+| `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 308 px | 10 |
+| `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` | 14 |
 
 **The pane** is a bare frame: it inherits the 20 % tint, gets a `1px` `#ffffff1f` border (the
-pane holding the keyboard takes `accent` `#e9d8b9` instead) and radius 0. The shipped `pane` header
+pane holding the keyboard takes `accent` `#e9d8b9` instead) and radius 14. The shipped `pane` header
 sits 30 px at the top, always visible: program icon, title, folder, the agent's status (spinner,
 `Needs you` while blocked, a dot when done), and — on hover only — split-right, split-down, zoom
 and close. The header paints `theme().background`, i.e. a second 20 % tint, plus a 1 px `border`
 rule: two thin layers rather than a slab, which is what keeps it from fighting the photograph.
+Both layers are clipped to the frame's curve, so the tint stops on the arc instead of squaring the
+pane's top corners.
 
 **Top bar — 38 px, full width, `window_drag: true`, nothing painted.** Its type sits straight on
 the photograph. One row at 11.5 px, left to right:
@@ -104,7 +108,7 @@ twelve ticks. Labels are 9 px `dim` `#828d9c`; numbers are
 fixed boxes — 34 px for the percentage, 58 px for the memory — so `%` and `G` stand in the same
 column on every sample and the strips never shift. A strip is twelve 2 px ticks 2 px apart, 1–11 px
 tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in `accent` `#e9d8b9`, so the
-right edge of a strip is “now”. Nothing rounds, nothing fills: the ticks sit straight on the plate.
+right edge of a strip is “now”. The ticks carry no radius and no fill: they sit straight on the plate.
 
 **Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
 `#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`
@@ -207,28 +211,29 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
               preview "layouts/artemis.svg"
 ├ bar         block 38   window_drag  mod artemis-bar     (nothing painted)
 └ body        row        gap 0
-  ├ sidebar   column 292  min 220  max 420  radius 0
+  ├ sidebar   column 292  min 220  max 420  radius 14
   │ │                    background "#070b1240"  border {1,"#ffffff1f"}
   │ ├ spaces  block weight 1  min 90  mod spaces   (no fill)
   │ └ agents  block weight 1  min 90  mod agents   (no fill)
   └ work      column gap 12  padding [10,20]  resizable false
-    ├ tabs       block 38  window_drag  background "#070b1240"
+    ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
     │                    border {1,"#ffffff1f"}  mod tabs
     ├ work-body  row  gap 10
     │ ├ main  block  content {tab "active", pane {...}}
-    │ └ panel column 340  min 280  max 900  hidden true  background "#070b1240"
-    │          border {1,"#ffffff1f"}
+    │ └ panel column 340  min 280  max 900  hidden true  radius 14
+    │          background "#070b1240"  border {1,"#ffffff1f"}
     │   └ panel-body  stack  active "files"  children: files, changes
-    └ status       row 26  gap 0  resizable false  background "#070b1240"
-                           border {1,"#ffffff1f"}
+    └ status       row 26  gap 0  resizable false  radius 10
+                           background "#070b1240"  border {1,"#ffffff1f"}
       ├ status-workspace  block weight 1  mod workspace-status
       └ status-sysmon     block 308  min 308  mod sysmon  (paints no fill)
 ```
 
 The pane frame is exactly
-`{"gap":10,"radius":0,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`
-— no `background`, so it keeps the layout's 20 % tint, and `radius` 0 like every plate: the frame
-must be stated in `content.pane`, not on the node.
+`{"gap":10,"radius":14,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"pane"},"height":30,"position":"top","reveal":"always"}}`
+— no `background`, so it keeps the layout's 20 % tint, and `radius` 14 like every plate: the frame
+must be stated in `content.pane`, not on the node, or the frame stays square (the node's `radius`
+rounds the block's own fill, not the pane).
 
 **`mods/artemis-bar`** (no `props`) is one `h_flex().size_full()`: `.pl(mac ? 78 : 12).pr(4)`,
 `.text_size(11.5)`, `.overflow_hidden()`, and `.bg(t.chrome)` — which is transparent, so the row
@@ -308,16 +313,16 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 - **`chrome` is `#00000000` on purpose.** The bar paints `theme().chrome`, so a transparent chrome
   is what keeps its type on the photograph; the four plates name the literal `#070b1240` instead.
   Don't set `chrome` to the plate colour: the bar would grow a band across the top of the window.
-- **Every plate has radius 0, for the same reason.** A rounded frame around a terminal whose
-  content, header and divider are all square leaves a sliver of square corner poking into the
-  curve — that is the bug this layout exists to avoid. The pane's radius lives in
-  `content.pane`, not on the node: setting the node's `radius` to 0 leaves the frame rounded.
-  If you want round plates back, square the header first (`header` off, or `reveal: "hover"`, or a
-  custom header mod that clips).
-- **The app rewrites its own copy of this picture.** After a click, the app folder's
-  `layouts/artemis.svg` came back with its `rx` values set to the clicked radii (`3.11` = 14 px at
-  4.5 px per unit) — the same pass that writes click radii into `layouts/artemis.json`. The repo's
-  hand-drawn file is the one that ships; don't copy the app's rewrite back.
+- **A plate's corner is its node's `radius`; the pane's is `content.pane.radius`.** The app clips
+  the frame's content — the header mod's tint and its 1 px rule, the terminal's paper — to the
+  rounded rect, and draws the `focus` border on the same arc, so a rounded pane needs no square
+  header. Measured on 0.1.15 by painting the pane opaque at `radius` 20: neither a square corner
+  nor a straight-ended divider shows outside the curve. Put the value in `content.pane`, not on
+  the node, or the frame stays square.
+- **The app may rewrite its own copy of this picture.** After a click it can set the app folder's
+  `layouts/artemis.svg` `rx` values to the clicked radii (`3.11` = 14 px at 4.5 px per unit), the
+  same pass that writes click radii into `layouts/artemis.json`. The repo's hand-drawn file is the
+  one that ships; don't copy the app's rewrite back.
 - **`colors.background` is a 20 % tint, not a solid.** It keeps printed text readable over the
   corona without hiding the photograph; the four plates double it to 25 %. A new mod inside the
   work column sits on that same thin smoke, so give any new panel its own fill.
@@ -406,8 +411,9 @@ herdr-app shot /tmp/artemis.png
 - the photograph is whole: nothing is cropped, and where the window is a different shape the
   bars above and below (or either side) blend into the frame's own edge with no line to see;
 - the rail opens with `Spaces` at once — no title block, no credit; then `Agents`;
-- every plate is a right angle: rail, tab strip, pane and status bar meet their neighbours
-  squarely, and the pane's header is two thin layers (20 % tint + a 1 px rule), not a slab;
+- every plate is a round sheet: 14 px on the rail, the pane and the panel, 12 on the tab strip,
+  10 on the status bar, and the pane's header is two thin layers (20 % tint + a 1 px rule) clipped
+  to the frame's curve, not a square slab;
 - the bar shows the eclipse mark, `ARTEMIS` `II`, the active space with its branch (plus a folder and
   a named tab when they differ), and a UTC clock that advances every second — and nothing else;
 - a pane running a shell shows the picture behind its text (the Moon's limb, its craters and the

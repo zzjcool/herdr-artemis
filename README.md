@@ -21,14 +21,17 @@ text.
 - the whole frame, never cropped: in a 16:10 window it fills the height with 90 px of the same near-black at
   either side (at 2880 px wide); in a tall window it is a band across the middle
   with the same near-black above and below;
-- square plates throughout: the rail, the tab strip, the pane and the status bar are
-  right-angled sheets of smoke, so nothing rounds a corner the photograph does not;
+- rounded plates throughout: the rail, the tab strip, the pane and the status bar are
+  sheets of smoke with a 14 px corner (12 on the tab strip, 10 on the status bar), and the
+  frame clips its header, its divider and the terminal's paper to the curve, so no square
+  corner pokes out of it;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
 - **a system monitor at the right end of the status bar**: the CPU and memory of the machine the
   shown space lives on — this computer, or the host that space's terminals run on, read over the
-  connection Herdr already keeps to it (`iostat`/`vm_stat` on macOS, `/proc` on Linux, all
-  read-only), a number and a twelve-tick sparkline each, sampled every three seconds; switch to a
+  connection Herdr already keeps to it (`uname`, `sysctl`, `iostat`, `vm_stat` on macOS; one
+  `sh -c` over `/proc` on Linux — all read-only queries), a number and a twelve-tick sparkline
+  each, sampled every three seconds; switch to a
   space on another machine and the readings become that machine's. The mod never runs ssh and holds
   no key, and a machine that cannot answer draws nothing at all;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
