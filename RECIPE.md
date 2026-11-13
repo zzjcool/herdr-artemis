@@ -13,12 +13,14 @@ on the rail, the pane and the panel, 12 on the tab strip, 10 on the status bar �
 its own fill and the header's divider rule to that curve; the header band, which a mod paints, is
 rounded by the mod instead.
 
-The status bar's right end carries a small system monitor: the CPU and memory of the machine the
-shown space lives on — this computer, or the host that space's terminals run on — a number and a
-twelve-tick sparkline each, sampled every three seconds. It reads them over the connection Herdr
-already has (`exec(…, {on})`, i.e. herdr-core on that machine): no ssh, no key handling, no network
-of the mod's own — only read-only queries run there (`uname`, `sysctl`, `iostat`, `vm_stat` on macOS;
-one `sh -c` over `/proc` on Linux).
+The status bar's right end carries a small system monitor: the CPU, memory and network of the
+machine the shown space lives on — this computer, or the host that space's terminals run on — a
+number and a twelve-tick sparkline each, sampled every three seconds. Every machine with a space is
+sampled, not just the shown one, so moving to another host shows its numbers at once instead of
+starting from nothing; the same reading is drawn under each machine's name in the rail. It reads
+them over the connection Herdr already has (`exec(…, {on})`, i.e. herdr-core on that machine): no
+ssh, no key handling, no network of the mod's own — only read-only queries run there (`uname`,
+`sysctl`, `iostat`, `vm_stat`, `netstat -ib` on macOS; one `sh -c` over `/proc` on Linux).
 
 ![Artemis](preview.png)
 
@@ -59,7 +61,7 @@ top of the window. Every plate that *should* be visible names the literal `#070b
 |---|---|---|
 | `sidebar` (the rail) | 292 px, `min` 220, `max` 420 | 14 |
 | `tabs` | 38 px tall, `window_drag: true` | 12 |
-| `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 308 px | 10 |
+| `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 496 px | 10 |
 | `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` | 14 |
 
 **The pane** is a bare frame: it carries its own 32 % tint (`content.pane.background`), gets a
@@ -117,12 +119,16 @@ clipped by the plate's radius, so that line squared the bar's corners (see *Watc
 
 **System monitor — the bar's right end.** `CPU`, the percentage, a twelve-tick strip; a 1 px rule;
 `MEM`, `23.1/32G` — that machine's own total, so a 15G host reads `/15G` — and a strip of the same
-twelve ticks. Labels are 9 px `dim` `#828d9c`; numbers are
+twelve ticks; a 1 px rule; `NET`, `↓1.2M ↑96K` — bytes a second in and out of the machine's own
+links — and one strip of the two together. Labels are 9 px `dim` `#828d9c`; numbers are
 11.5 px in `settings().font_family` (else JetBrains Mono) in `muted` `#b7c2cd`, right-aligned in
-fixed boxes — 34 px for the percentage, 58 px for the memory — so `%` and `G` stand in the same
-column on every sample and the strips never shift. A strip is twelve 2 px ticks 2 px apart, 1–11 px
-tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in `accent` `#e9d8b9`, so the
-right edge of a strip is “now”. The ticks carry no radius and no fill: they sit straight on the plate.
+fixed boxes — 34 px for the percentage, 58 px for the memory, 74 px for the two rates — so `%`, `G`
+and `K` stand in the same column on every sample and the strips never shift. A strip is twelve 2 px
+ticks 2 px apart, 1–11 px tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in
+`accent` `#e9d8b9`, so the right edge of a strip is “now”. CPU and memory scale against 0–100 %; the
+network strip scales against the busiest sample of its own window (at least 4 KB/s), because a link
+has no ceiling worth drawing against. The ticks carry no radius and no fill: they sit straight on the
+plate.
 
 **Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
 `#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`
@@ -149,25 +155,42 @@ render exactly like no agent at all:
 
 Counts are not repeated in the bar: the `agents` list in the rail is where they belong.
 
-**The monitor reads the shown space's machine, every three seconds.** There is no system-stats API,
-so each machine is asked in its own dialect. macOS: `iostat -c 2 -w 1` prints two samples one second
-apart — the first is the average since boot, the second is the last second, so only the last line is
-read (a single-line answer is refused rather than passed off as “now”) — and CPU is `us + sy` from
-it; `vm_stat` is read in the same breath, and memory in use is `(active + wired + compressor) × page
-size` over `hw.memsize`, asked once. Linux: one `sh -c` reads the aggregate `cpu` line of
-`/proc/stat`, the two memory numbers from `/proc/meminfo`, sleeps a second and reads `cpu` again —
-busy is `1 − (Δidle + Δiowait) / Δtotal`, and memory in use is `MemTotal − MemAvailable`. Which
-dialect is `uname -s`, asked once per machine and asked again if it fails.
+**Every machine that has a space is sampled, not only the shown one.** There is no system-stats API,
+so each machine is asked in its own dialect, one round trip per sample. macOS: `iostat -c 2 -w 1`
+prints two samples one second apart — the first is the average since boot, the second is the last
+second, so only the last line is read (a single-line answer is refused rather than passed off as
+“now”) — and CPU is `us + sy` from it; `vm_stat` and `netstat -ib` are read in the same breath, and
+memory in use is `(active + wired + compressor) × page size` over `hw.memsize`, asked once. Linux:
+one `sh -c` reads the aggregate `cpu` line of `/proc/stat`, the two memory numbers from
+`/proc/meminfo` and `/proc/net/dev`, sleeps a second and reads `cpu` again — busy is
+`1 − (Δidle + Δiowait) / Δtotal`, and memory in use is `MemTotal − MemAvailable`. Which dialect is
+`uname -s`, asked once per machine and asked again if it fails.
 
-All of it is read-only, and a sample is one round trip to that machine: about 12 ms of CPU here, and
-on a remote host the ~1 s probe plus the link. The poll stays three seconds; when a machine answers
-slowly the `busy` flag skips ticks instead of stacking samples.
+**The network is a difference, so it needs the sample before it.** `netstat -ib`'s `Ibytes`/`Obytes`
+and `/proc/net/dev`'s counters are cumulative; a rate is the change since that same machine's
+previous sample over the seconds between the two. Only the machine's own links count — `en*`,
+`eth*`, `wl*`, `wwan*`, `ppp*`, `ib*` — because a VPN tunnel carries the same bytes twice and a
+container bridge is not the host's traffic at all. The first sample of a machine has no rate yet and
+reads `—` rather than a false `0`; a counter that goes backwards (a reboot, an interface that came
+back) resets the baseline instead of reporting a spike.
 
-**Switching machines retargets the monitor at once.** The machine is the active space's, so moving to
-a space on another host drops the old reading, empties the strip and takes a sample of the new
-machine immediately, rather than letting a stranger's numbers stand for three seconds. A sample for
-the machine we just left is thrown away (`gen`), and `hw.memsize` / `uname` answers are cached per
-machine so switching back does not re-ask them.
+**One tick, two probes.** The shown machine is sampled every tick (3 s); one *other* machine per
+tick as well, stalest first, so five machines cost a probe each every few ticks and the connection is
+never opened five times at once. `busy` per machine keeps a slow answer from stacking under the next
+tick, and every machine keeps its own twelve-sample history — which is what makes switching spaces
+instant: the machine you land on already has its strip and nothing is cleared. All of it is
+read-only, and a sample is one round trip: about 12 ms of CPU here, on a remote host the ~1 s probe
+plus the link.
+
+**The snapshot is shared.** After each sample `sysmon` publishes
+`setShared("sysmon.machines", {hosts: {…}})`, and the rail draws the same reading under each
+machine's name (below). `setShared` re-renders every mod, so the publish is throttled to one every
+900 ms; a machine that stops answering simply stops appearing in new snapshots.
+
+**A machine that goes away does not take the monitor with it.** A failed sample leaves that
+machine's numbers in `dim` with no cream tick, three in a row and it is asked once a minute instead
+of every tick, and the rail keeps the last reading it had. `uname` and `hw.memsize` are cached per
+machine, so a host is asked those once, not per sample.
 
 **The first strip is flat.** The first sample fills all twelve ticks with itself, so a fresh window
 shows a line at today's level instead of twelve claims of history it never saw; after that, one
@@ -181,6 +204,15 @@ monitor repeats neither the name nor the fact that it is remote. A machine whose
 failed sample is not painted over: the numbers drop to `dim` and the newest tick loses its cream, so
 nothing on the bar claims to be “now” while the reading is stale; three failures in a row and it
 keeps trying once a minute instead of every tick.
+
+**The rail shows every machine's reading.** Under each machine's name in the space list — `This
+computer`, `devcloud`, `gpu`, `nj-host`, `nj-hw` — one 17 px line: `CPU 42%` and `MEM 78%` with a
+twelve-tick strip each (1 px ticks, 7 px tall) and `↓379K ↑67K` at the right end, at 8.5–10 px,
+indented 29 px so it hangs under the name rather than under the icon. It is `mods/artemis-spaces` —
+the shipped `spaces` plus a `stats()` method that reads the snapshot `sysmon` publishes: nothing in
+the rail samples anything or waits on an answer, and a machine with no reading yet draws no line at
+all rather than an empty one. The numbers go `dim` when that machine's last sample failed, and the
+line is skipped entirely in the rail's narrow (icon) mode.
 
 **Clicks and hovers**
 
@@ -202,9 +234,9 @@ keeps trying once a minute instead of every tick.
 
 **Keys** — the layout binds nothing and leaves the person's `keys.json` alone; neither mod binds a
 key. The bar mod runs no program and asks Herdr only to minimise, maximise or close the window; the
-monitor runs `uname`, then `iostat`, `vm_stat` and `sysctl` on macOS or one `sh -c` over `/proc` on
-Linux, all through herdr-core on the machine being watched — it opens no network connection of its
-own and holds no key.
+monitor runs `uname`, then `iostat`, `vm_stat`, `sysctl` and `netstat -ib` on macOS or one `sh -c`
+over `/proc` on Linux, all through herdr-core on the machine being watched — it opens no network
+connection of its own and holds no key.
 
 ## Built from
 
@@ -218,6 +250,7 @@ mods/artemis-pane/            main.js, mod.json {"place":"none","title":"Artemis
 mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis tabs"},
                               win-close/max/min/restore.svg (Windows buttons)
 mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
+mods/artemis-spaces/          main.js, mod.json {"place":"none","title":"Artemis spaces"}
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
 
@@ -232,7 +265,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 ├ body        row        gap 10  weight 1
 │ ├ sidebar   column 292  min 220  max 420  radius 14
 │ │ │                    background "#070b1240"  border {1,"#ffffff1f"}
-│ │ ├ spaces  block weight 1  min 90  mod spaces   (no fill)
+│ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill)
 │ │ └ agents  block weight 1  min 90  mod agents   (no fill)
 │ └ work      column gap 10  resizable false
 │   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
@@ -245,7 +278,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 └ status      row 26  gap 0  resizable false  radius 10
                        background "#070b1240"  border {1,"#ffffff1f"}
   ├ status-workspace  block weight 1  mod artemis-workspace-status
-  └ status-sysmon     block 308  min 308  mod sysmon  (paints no fill)
+  └ status-sysmon     block 496  min 496  mod sysmon  (paints no fill)
 ```
 
 The pane frame is exactly
@@ -291,29 +324,43 @@ clipped. `artemis-tabs` also points its four Windows button icons at its own fol
 `.border_l(1)` in `theme().border` — no background, so the plate stays the row's and the
 bar reads as one sheet with a 1 px seam, and no overflow, so a squeezed block clips its own content
 rather than painting over its neighbour. It imports `View` and `div` from `gpui-kit`, `h_flex` from
-`gpui-base`, and `exec`, `settings`, `spaces`, `theme` from `herdr`. It samples on a
-`cx.timer.every(3000, …)` — the first sample fired at once by `cx.timer.after(1, …)` — with a
-`busy` flag so a slow answer never stacks, and a `missing` counter that, after three failures in a
-row, waits 20 ticks (63 s to the next try). `render(cx)` is where a machine change is noticed:
-`spaces().find((s) => s.active)?.machine ?? null` against `this.machine`; a difference bumps `gen`,
-empties the history and starts a sample of the new machine. Programs, by dialect (`uname -s`, cached
-per machine): macOS `sysctl -n hw.memsize` (cached per machine), `iostat -c 2 -w 1` + `vm_stat`;
-Linux one `sh -c` reading `/proc/stat`, `/proc/meminfo`, then `/proc/stat` again a second later.
-Every call carries `{ on: machine }`, so it runs through herdr-core on that machine — the mod never
-runs ssh itself. Each metric is a
-label (`w(24)`, 9 px, `dim`), a value (`h_flex().w(34 | 58).justify_end()` around a 11.5 px `div()`
-in the person's mono face, `muted` while the reading is live and `dim` once it is not) and a strip:
-`h_flex().gap(2).h(11).items_end()` over twelve `div().w(2)` ticks whose height is
-`1 + round(pct / 10)` px, the newest one `accent` (`unknown` when stale) and the rest `idle`. Between
-the two, a `div().w(1).h(11).bg(t.border)`. Parsing is three small regexes and one split: the last of
-two data lines of `iostat`, and `vm_stat`'s `Pages active/wired down/occupied by compressor` plus the
-page size in its header.
+`gpui-base`, and `exec`, `machines`, `setShared`, `settings`, `spaces`, `theme` from `herdr`. A tick
+happens on `cx.timer.every(3000, …)` — the first one fired at once by `cx.timer.after(1, …)` — and
+`pump()` decides what to ask: this computer, every machine `machines()` knows and every machine a
+space sits on, minus the busy ones, the shown machine first and one other (the stalest) behind it.
+Each machine has its own `hosts[key]` record: three twelve-sample histories, the last reading, the
+`busy` / `missing` / `wait` flags (three failures in a row and it waits 20 ticks, 63 s) and the
+running network counters. Programs, by dialect (`uname -s`, cached per machine): macOS
+`sysctl -n hw.memsize` (cached per machine) and then one `sh -c` of `iostat -c 2 -w 1`, `vm_stat`,
+`netstat -ib`; Linux one `sh -c` reading `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, then
+`/proc/stat` again a second later. Every call carries `{ on: machine }`, so it runs through
+herdr-core on that machine — the mod never runs ssh itself. Each metric is a
+label (`w(24)`, 9 px, `dim`), a value (`h_flex().w(34 | 58 | 74).justify_end()` around a 11.5 px
+`div()` in the person's mono face, `muted` while the reading is live and `dim` once it is not) and a
+strip: `h_flex().gap(2).h(11).items_end()` over twelve `div().w(2)` ticks whose height is
+`1 + round(v / scale) × 10` px, the newest one `accent` (`unknown` when stale) and the rest `idle`.
+Between them, a `div().w(1).h(11).bg(t.border)`. The network's `scale` is the busiest sample of its
+own window (floor 4 KB/s), the others 100. Parsing: the last of two data lines of `iostat`,
+`vm_stat`'s `Pages active/wired down/occupied by compressor` over the page size in its header,
+`netstat -ib`'s `<Link#n>` rows, and `/proc`'s two `cpu` lines, `MemTotal`/`MemAvailable` and
+`/proc/net/dev`'s sixteen numbers a line. Every successful sample ends with `publish()` —
+`setShared("sysmon.machines", {at, hosts})`, throttled to one a second — which is what draws the
+rail's reading too.
+
+**`mods/artemis-spaces`** (no `props`) is the shipped `spaces` plus one method and one element: under
+each machine's header row, `stats(m, t)` draws `shared("sysmon.machines").hosts[m ?? ""]` — `CPU 42%`
+and `MEM 78%` with a twelve-tick strip each (1 px ticks, `MINI_BAR` 7 px) and `↓379K ↑67K` at the
+right end — or returns `null` when that machine has no reading yet, so an unsampled host gets no line
+rather than an empty one. It is indented `pl(29)` to hang under the name, and skipped when the rail is
+narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
+are the shipped mod unchanged.
 
 **Shipped mods used:** `spaces`, `agents`, `tabs`, `workspace-status`,
-`files`, `changes` — and three of them are forked for one line each: `pane` →
-`mods/artemis-pane` (the band's corner), `tabs` → `mods/artemis-tabs` and
-`workspace-status` → `mods/artemis-workspace-status` (a 1 px edge rule that would square a
-plate's corner, see *Watch out*). Everything else is used as shipped. Nothing needs
+`files`, `changes` — and four of them are forked: `pane` → `mods/artemis-pane` (the band's
+corner), `tabs` → `mods/artemis-tabs` and `workspace-status` →
+`mods/artemis-workspace-status` (a 1 px edge rule that would square a plate's corner, see
+*Watch out*), and `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine).
+Everything else is used as shipped. Nothing needs
 `keys.json`, `programs.json`, `settings.json` or a theme file:
 the look is all in the layout's root.
 
@@ -449,15 +496,15 @@ the content, one for the footer, 10 px between them.
   link rather than stacking samples, so a bad host backs off by itself.
 - **`vm_stat`'s page size is 16384 on Apple Silicon and 4096 on Intel** — read it from the header
   (`page size of N bytes`); assuming 16384 reports memory 4× off on an Intel Mac.
-- **The block is 308 px for 306 px of content.** 1 px border + 2 × 12 px padding + 281 px
-  (CPU `24 + 7 + 34 + 7 + 46`, then `10 + 1 + 10`, then MEM `24 + 7 + 58 + 7 + 46`) = 306; the two
-  spare pixels are `justify_end`'s slack, so nothing is stretched. Change `TICKS` or a `width`
-  and the layout's `px` must change with it — a short block clips the CPU label on the left, not
-  on the right.
+- **The block is 496 px for 485 px of content.** 1 px border + 2 × 12 px padding + 460 px
+  (CPU `24 + 7 + 34 + 7 + 46`, then `10 + 1 + 10`, then MEM `24 + 7 + 58 + 7 + 46`, then
+  `10 + 1 + 10`, then NET `24 + 7 + 74 + 7 + 46`) = 485; the spare pixels are `justify_end`'s
+  slack, so nothing is stretched. Change `TICKS` or a `width` and the layout's `px` must change with
+  it — a short block clips the CPU label on the left, not on the right.
 - **The `status` row is `resizable: false`, and that is load-bearing.** Rows are draggable at their
   boundaries by default, so without it the seam is a handle that can squeeze the monitor under its
-  306 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
-  `min: 308` as a second guard.
+  485 px of content — and a clicked size persists in `layouts/.state/`. The block also carries
+  `min: 496` as a second guard.
 - **`herdr-app check` proves little about this mod.** `render()` returns an empty `div()` until a
   sample has landed, so the check exercises `init`'s two timers and that empty block — and no program
   at all, since the samples start on the timer; the numbers and their strips are built only in the
@@ -484,6 +531,7 @@ Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`, then:
 ```sh
 herdr-app check ~/.config/herdr-app/mods/artemis-bar           # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-pane          # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-spaces        # exit 0
 herdr-app check ~/.config/herdr-app/mods/sysmon                # exit 0
 herdr-app do layout.switch --name artemis
 herdr-app status                                               # "layout": "artemis", "errors": []

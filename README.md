@@ -30,18 +30,22 @@ and the corona read straight through the text.
   end on one bottom line, and the status bar is a full-width footer one gutter below it;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
-- **a system monitor at the right end of the status bar**: the CPU and memory of the machine the
-  shown space lives on — this computer, or the host that space's terminals run on, read over the
-  connection Herdr already keeps to it (`uname`, `sysctl`, `iostat`, `vm_stat` on macOS; one
-  `sh -c` over `/proc` on Linux — all read-only queries), a number and a twelve-tick sparkline
-  each, sampled every three seconds; switch to a
-  space on another machine and the readings become that machine's. The mod never runs ssh and holds
-  no key, and a machine that cannot answer draws nothing at all;
+- **a system monitor at the right end of the status bar**: the CPU, memory and network of the
+  machine the shown space lives on — this computer, or the host that space's terminals run on, read
+  over the connection Herdr already keeps to it (`uname`, `sysctl`, `iostat`, `vm_stat`,
+  `netstat -ib` on macOS; one `sh -c` over `/proc` on Linux — all read-only queries), a number and a
+  twelve-tick sparkline each, sampled every three seconds; the network reads `↓1.2M ↑96K` bytes a
+  second. Every machine with a space is sampled in the background, so switching to another host
+  shows its numbers at once instead of starting from nothing. The mod never runs ssh and holds no
+  key, and a machine that cannot answer goes quiet rather than drawing a guess;
+- **the same reading in the rail**: under each machine's name in the space list, one line —
+  `CPU 42%`, `MEM 78%` and `↓379K ↑67K`, each with its own sparkline — so the health of every host
+  is one glance away, without switching to a space on it;
 - the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
   minimise, maximise or close the window; the pane header (`artemis-pane`), the tab strip
-  (`artemis-tabs`) and the status bar's left half (`artemis-workspace-status`) are the shipped
-  mods with the one line changed that would otherwise draw a straight rule across a rounded
-  corner (§ *Watch out* in the recipe); none of them, nor the monitor, touches the network.
+  (`artemis-tabs`), the status bar's left half (`artemis-workspace-status`) and the space list
+  (`artemis-spaces`) are the shipped mods with the one thing changed that they needed here (§
+  *Watch out* in the recipe); none of them, nor the monitor, touches the network.
 
 **Install.** Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`
 (`backgrounds/artemis.jpg` is the ground — without it the window has no photograph),
@@ -52,13 +56,14 @@ herdr-app check ~/.config/herdr-app/mods/artemis-bar
 herdr-app check ~/.config/herdr-app/mods/artemis-pane
 herdr-app check ~/.config/herdr-app/mods/artemis-tabs
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status
+herdr-app check ~/.config/herdr-app/mods/artemis-spaces
 herdr-app check ~/.config/herdr-app/mods/sysmon
 herdr-app do layout.switch --name artemis
 herdr-app status
 ```
 
 **[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
-the node tree, the five mods, the picture, and the things this layout cannot do.
+the node tree, the six mods, the picture, and the things this layout cannot do.
 
 The photograph is `art002e015967` from
 [nasa.gov](https://www.nasa.gov/image-detail/amf-art002e015967/): a US government

@@ -94,7 +94,7 @@
               },
               "min": 90,
               "content": {
-                "mod": "spaces"
+                "mod": "artemis-spaces"
               }
             },
             {
@@ -250,9 +250,9 @@
           "id": "status-sysmon",
           "type": "block",
           "size": {
-            "px": 308
+            "px": 496
           },
-          "min": 308,
+          "min": 496,
           "content": {
             "mod": "sysmon"
           }
