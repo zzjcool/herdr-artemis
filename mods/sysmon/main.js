@@ -2,22 +2,29 @@
 // network of the machine the shown space lives on.
 //
 // Herdr has no system-stats API, so the numbers come from what each machine
-// ships: on macOS `iostat`, `vm_stat` and `netstat -ib`, on Linux `/proc`. All of
+// ships: on macOS `iostat`, `vm_stat` and `netstat -ibn`, on Linux `/proc`. All of
 // it goes through `exec(..., {on})` — herdr-core on that machine, over the
 // connection Herdr already has — so the mod never runs ssh itself, holds no key
 // and needs no host in a config; an unreachable machine simply reads as nothing.
 //
 // Every machine that has a space is sampled, not only the shown one: the shown
-// machine every tick (3 s), one other machine per tick too, stalest first, so a
-// host costs one probe every few ticks and switching spaces never empties a
+// machine every tick (1 s), one other machine per tick too but at a lazier pace,
+// so a host costs a probe every few seconds and switching spaces never empties a
 // strip — the machine you land on already has its history. The snapshot is
 // published with `setShared`, which is how the rail (`mods/artemis-spaces`) draws
 // the same reading under each machine's name.
 //
+// Two of the three numbers are differences, not readings: the network is the
+// change in the kernel's byte counters since that machine's last sample, and on
+// Linux the CPU is the change in its tick counters — which is why the Linux probe
+// does not sleep and why a machine's first sample has no rate yet (`—`, never a
+// false 0). macOS is the exception: `iostat -c 2 -w 1` is the only honest
+// per-second CPU figure it offers, so there the probe spends its own second.
+//
 // Each metric is a label, a value in the bar's mono face, and a sparkline of the
 // last twelve samples — history ticks in `idle`, the newest in `accent`, so the
 // strip reads left to right and its right edge is "now". CPU and memory are
-// heights on a fixed 0–100 %, the network one on the busiest sample of the
+// heights on a fixed 0–100 %, the network one on the busiest sample of its
 // window, because a link has no ceiling worth drawing against. Heights are
 // 1–11 px, so a quiet machine is a line of short ticks and a busy one is a comb.
 
@@ -25,25 +32,33 @@ import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, machines, setShared, settings, spaces, theme } from "herdr";
 
-const TICKS = 12;        // samples in a sparkline; at the poll below, 36 s of history
-const POLL = 3000;       // ms between samples of the shown machine
+const TICKS = 12;        // samples in a sparkline
+const TREND = 3000;      // ms between sparkline samples: twelve of them, 36 s of history
+const POLL = 1000;       // ms between readings of the shown machine
 const BAR = 11;          // px: the tallest tick
-const SLOW = 20;         // ticks to wait after three failures in a row: one minute
-const STALE = 12000;     // a reading older than this is not "now" any more
+const SLOW = 60;         // ticks to wait after three failures in a row: one minute
+const STALE = 6000;      // a reading older than this is not "now" on the bar any more
+const RAIL_STALE = 30000;// ... and older than this is not "now" in the rail either
+const BG_STALE = 15000;  // a machine nobody is looking at is re-read this often
+const BG_GAP = 2000;     // ... but never more often than this
 const FLOOR = 4096;      // bytes/s: the network strip's smallest full scale
 const GIB = 1024 ** 3;
 const SHARED = "sysmon.machines";
 
 // One round trip, one line-oriented format: `@@name` starts a section and a
-// section may appear twice. CPU is a delta, so it is read at both ends of the
-// probe's own second — the interval `iostat -c 2` reports, and the one Linux
-// gets from reading `/proc/stat` twice.
+// section may appear twice. Everything is filtered on the machine, because the
+// probe's own bytes land on the link being measured.
 const LINUX_PROBE =
   "echo @@cpu; head -1 /proc/stat; echo @@mem; grep -E '^(MemTotal|MemAvailable):' /proc/meminfo; " +
-  "echo @@net; cat /proc/net/dev; sleep 1; echo @@cpu; head -1 /proc/stat";
+  "echo @@net; grep -E '^ *(eth|en|wl|wwan|ppp|ib)' /proc/net/dev";
 
+// macOS: iostat is the only per-second CPU figure there is, and its two lines
+// cost the probe a second; `netstat -ib` without `-n` spends ten seconds on name
+// lookups, so the flag is not optional.
 const MAC_PROBE =
-  "echo @@cpu; iostat -c 2 -w 1; echo @@mem; vm_stat; echo @@net; netstat -ib";
+  "echo @@cpu; iostat -c 2 -w 1; echo @@mem; " +
+  "vm_stat | grep -E '^Pages (active|wired down|occupied by compressor)'; " +
+  "echo @@net; netstat -ibn | awk '$3 ~ /^<Link#/ && $1 ~ /^(en|eth|ppp)/ {print $1, $7, $10}'";
 
 // Only the machine's own links: a VPN tunnel on top of one of these carries the
 // same bytes twice, and a container bridge is not the host's traffic at all.
@@ -86,61 +101,61 @@ function cpuOf(stdout) {
   return Math.min(100, Math.max(0, us + sy));
 }
 
+// Linux: the aggregate `cpu` line of /proc/stat, kept as two counters so the
+// next sample can take a difference. user/nice/system/irq/softirq/steal are
+// busy, idle and iowait are not; the guest fields are already inside user.
+function ticksOf(stdout) {
+  const line = stdout.split("\n").find((l) => l.startsWith("cpu "));
+  if (!line) return null;
+  const f = line.trim().split(/\s+/).slice(1, 9).map(Number);
+  if (f.length < 4 || f.some((n) => !Number.isFinite(n))) return null;
+  const total = f.reduce((x, y) => x + y, 0);
+  const idle = f[3] + (f[4] ?? 0);
+  return total > 0 ? { idle, total } : null;
+}
+
+// Busy between two samples: everything but idle+iowait over the elapsed ticks.
+function usage(prev, next) {
+  if (!prev || !next) return null;
+  const dt = next.total - prev.total;
+  const di = next.idle - prev.idle;
+  if (!(dt > 0) || di < 0) return null;
+  return Math.min(100, Math.max(0, 100 * (1 - di / dt)));
+}
+
 // macOS memory in use, the way a person reads it: the pages that are active,
 // wired or held by the compressor. Free and inactive pages are not "used" — the
 // kernel hands them back without asking — and counting them would pin this at
 // ~99 %, which is how a healthy Mac always looks to `top`.
-function memOf(stdout) {
-  const page = Number(stdout.match(/page size of (\d+) bytes/)?.[1] ?? 0);
+function memOf(stdout, page) {
   const pages = (name) => Number(stdout.match(new RegExp(`^Pages ${name}:\\s+(\\d+)`, "m"))?.[1] ?? 0);
   const used = (pages("active") + pages("wired down") + pages("occupied by compressor")) * page;
-  return page > 0 ? used : null;
+  return page > 0 && used > 0 ? used : null;
 }
 
-// Linux: the two `cpu` lines give user/nice/system/idle/iowait/irq/softirq/steal
-// ticks; busy is everything but idle+iowait over the elapsed ticks. Memory in use
-// is MemTotal − MemAvailable, the figure `free` means by "used".
-function linuxOf(first, second, meminfo) {
-  const line = (block) => block.split("\n").find((l) => l.startsWith("cpu "));
-  const fields = (l) => l.trim().split(/\s+/).slice(1, 9).map(Number);
-  const a = line(first);
-  const b = line(second);
-  if (!a || !b) return null;
-  const fa = fields(a);
-  const fb = fields(b);
-  if (fa.length < 4 || fb.length < 4 || fa.some((n) => !Number.isFinite(n))) return null;
-  const sum = (f) => f.reduce((x, y) => x + y, 0);
-  const idle = (f) => f[3] + (f[4] ?? 0);
-  const dt = sum(fb) - sum(fa);
-  const di = idle(fb) - idle(fa);
-  if (!(dt > 0)) return null;
+// Linux: MemTotal − MemAvailable, the figure `free` means by "used".
+function linuxMem(text) {
   const kb = (name) => {
-    const m = meminfo.match(new RegExp(`^${name}:\\s+(\\d+) kB`, "m"));
+    const m = text.match(new RegExp(`^${name}:\\s+(\\d+) kB`, "m"));
     return m ? Number(m[1]) * 1024 : 0;
   };
   const total = kb("MemTotal");
   const available = kb("MemAvailable");
   if (!(total > 0)) return null;
-  return {
-    cpu: Math.min(100, Math.max(0, 100 * (1 - di / dt))),
-    used: Math.max(0, total - available),
-    total,
-  };
+  return { used: Math.max(0, total - available), total };
 }
 
-// Cumulative bytes through the machine's own links. The `<Link#n>` row is the
-// one that carries the counters (the address rows above it print "-"), and the
-// column order is fixed: Name Mtu Network Address Ipkts Ierrs Ibytes Opkts
-// Oerrs Obytes Coll.
+// Cumulative bytes through the machine's own links: `name rx tx` a line, printed
+// by the awk above (netstat's `<Link#n>` rows are the ones that carry counters).
 function macNet(text) {
   let rx = 0;
   let tx = 0;
   let seen = false;
   for (const line of text.split("\n")) {
     const f = line.trim().split(/\s+/);
-    if (f.length < 10 || !MAC_IFACE.test(f[0]) || !f[2]?.startsWith("<Link#")) continue;
-    const i = Number(f[6]);
-    const o = Number(f[9]);
+    if (f.length < 3 || !MAC_IFACE.test(f[0])) continue;
+    const i = Number(f[1]);
+    const o = Number(f[2]);
     if (!Number.isFinite(i) || !Number.isFinite(o)) continue;
     rx += i;
     tx += o;
@@ -184,12 +199,15 @@ function rate(bps) {
   return `${Math.round(bps)}`;
 }
 
+const ZEROS = new Array(TICKS).fill(0);
+
 export default class Sysmon extends View {
   init(_props, cx) {
     this.hosts = {};                     // machine key -> its reading and history
     this.systemJobs = {};                // in-flight answers, so a tick cannot double-ask
     this.sizeJobs = {};
     this.shown = undefined;              // the key the bar last drew
+    this.background = 0;                 // when a machine nobody is looking at was last read
     this.published = 0;
 
     cx.timer.after(1, (cx) => this.pump(cx));
@@ -219,16 +237,20 @@ export default class Sysmon extends View {
       total: 0,                          // bytes, last sample
       inBps: 0,                          // bytes/s, last sample
       outBps: 0,
-      netKnown: false,                   // a rate needs two samples, not one
+      cpuKnown: false,                   // a rate needs two samples, not one
+      netKnown: false,
+      ticks: null,                       // Linux cpu counters behind the next percent
       rx: null,                          // cumulative counters behind the rates
       tx: null,
       at: 0,                             // when the last sample was taken
+      pushed: 0,                         // when a tick was last added to the strips
       live: false,                       // whether the last sample landed
       missing: 0,                        // failed samples in a row
       wait: 0,                           // ticks left to skip after a run of failures
       busy: false,
       system: null,                      // "Darwin" | "Linux"
       size: 0,                           // bytes (macOS hw.memsize)
+      page: 0,                           // bytes (macOS hw.pagesize)
     });
   }
 
@@ -250,15 +272,18 @@ export default class Sysmon extends View {
     return this.systemJobs[key];
   }
 
-  // hw.memsize, once per macOS machine.
+  // hw.memsize and hw.pagesize, once per macOS machine, in one call.
   sizeOf(key, on) {
     const host = this.host(key);
-    if (host.size) return Promise.resolve();
+    if (host.size && host.page) return Promise.resolve();
     if (!this.sizeJobs[key]) {
-      this.sizeJobs[key] = exec("sysctl", ["-n", "hw.memsize"], { on, timeout: 8000 })
+      this.sizeJobs[key] = exec("sysctl", ["-n", "hw.memsize", "hw.pagesize"], { on, timeout: 8000 })
         .then((r) => {
-          const n = Number(r.stdout.trim());
-          if (Number.isFinite(n) && n > 0) host.size = n;
+          const [size, page] = r.stdout.trim().split(/\s+/).map(Number);
+          if (Number.isFinite(size) && size > 0 && Number.isFinite(page) && page > 0) {
+            host.size = size;
+            host.page = page;
+          }
         })
         .catch(() => {})
         .finally(() => { delete this.sizeJobs[key]; });
@@ -273,50 +298,53 @@ export default class Sysmon extends View {
     const system = await this.systemOf(key, on);
     if (system === "Darwin") {
       await this.sizeOf(key, on);
-      if (!host.size) return null;
-      const r = await exec("sh", ["-c", MAC_PROBE], { on, timeout: 9000 });
+      if (!host.size || !host.page) return null;
+      const r = await exec("sh", ["-c", MAC_PROBE], { on, timeout: 8000 });
       const s = sections(r.stdout);
+      const used = memOf(block(s, "mem"), host.page);
       const net = macNet(block(s, "net"));
       return {
         cpu: cpuOf(block(s, "cpu")),
-        used: memOf(block(s, "mem")),
+        ticks: null,
+        used,
         total: host.size,
         rx: net?.rx ?? null,
         tx: net?.tx ?? null,
       };
     }
-    const r = await exec("sh", ["-c", LINUX_PROBE], { on, timeout: 9000 });
+    const r = await exec("sh", ["-c", LINUX_PROBE], { on, timeout: 8000 });
     const s = sections(r.stdout);
-    const mem = linuxOf(block(s, "cpu", 0), block(s, "cpu", 1), block(s, "mem"));
-    if (!mem) return null;
+    const ticks = ticksOf(block(s, "cpu"));
+    const mem = linuxMem(block(s, "mem"));
+    if (!ticks || !mem) return null;
     const net = linuxNet(block(s, "net"));
-    return { ...mem, rx: net?.rx ?? null, tx: net?.tx ?? null };
+    return { cpu: null, ticks, used: mem.used, total: mem.total, rx: net?.rx ?? null, tx: net?.tx ?? null };
   }
 
-  // Which machines want a probe this tick. The shown one first and on every
-  // tick; then the stalest of the rest, one per tick, so four remote machines
-  // cost a probe each every ~12 s instead of four connections at once.
+  // What is asked this tick: the shown machine every time, and — no more often
+  // than BG_GAP — the machine nobody is looking at that has waited longest.
   pump(cx) {
     const active = keyOf(this.current());
     const now = Date.now();
-    const due = [];
     for (const key of this.keys()) {
       const host = this.host(key);
       if (host.wait > 0) host.wait--;
-      if (host.busy || host.wait > 0) continue;
-      if (now - host.at < (key === active ? POLL - 800 : STALE)) continue;
-      due.push(key);
     }
-    if (!due.length) return;
-    const first = due.includes(active) ? active : due[0];
-    this.sample(first, cx);
-    const other = due.find((key) => key !== first && key !== active);
-    if (other && first === active) this.sample(other, cx);
+    const shown = this.host(active);
+    if (!shown.busy && shown.wait === 0 && now - shown.at >= POLL - 400) this.sample(active, cx);
+    if (now - this.background < BG_GAP) return;
+    const stale = this.keys()
+      .filter((key) => key !== active)
+      .map((key) => [key, this.host(key)])
+      .filter(([, host]) => !host.busy && host.wait === 0 && now - host.at >= BG_STALE)
+      .sort((a, b) => a[1].at - b[1].at)[0];
+    if (!stale) return;
+    this.background = now;
+    this.sample(stale[0], cx);
   }
 
-  // One sample. macOS needs ~1 s for iostat's second sample and Linux sleeps a
-  // second inside its own probe, so each machine runs one round trip; `busy`
-  // keeps a slow answer from stacking under the next tick.
+  // One sample. `busy` keeps a slow answer — a host over a slow link, or a macOS
+  // probe's own second — from stacking under the next tick.
   sample(key, cx) {
     const host = this.host(key);
     const on = key || null;
@@ -330,10 +358,12 @@ export default class Sysmon extends View {
         r = null;
       }
       host.busy = false;
-      if (!r || r.cpu === null || !(r.total > 0) || !(r.used >= 0)) {
+      if (!r || !(r.total > 0) || !(r.used >= 0)) {
         this.fail(key, cx);
         return;
       }
+      const cpu = r.cpu ?? usage(host.ticks, r.ticks);
+      if (r.ticks) host.ticks = r.ticks;
       const seconds = (at - host.at) / 1000;
       if (r.rx !== null && host.rx !== null && seconds > 0 && r.rx >= host.rx && r.tx >= host.tx) {
         host.inBps = (r.rx - host.rx) / seconds;
@@ -354,9 +384,16 @@ export default class Sysmon extends View {
       host.at = at;
       host.used = r.used;
       host.total = r.total;
-      this.push(host.cpu, Math.round(r.cpu));
-      this.push(host.mem, Math.round((r.used / r.total) * 100));
-      this.push(host.net, Math.round(host.inBps + host.outBps));
+      if (cpu !== null) host.cpuKnown = true;
+      // The numbers move every tick; the strips keep their 36-second window by
+      // taking a tick every TREND ms. A metric with no history yet is pushed at
+      // once, so a Linux machine's first CPU (which needs two samples) is not
+      // held back to the next trend tick.
+      const due = at - host.pushed >= TREND;
+      if (cpu !== null && (due || !host.cpu.length)) this.push(host.cpu, Math.round(cpu));
+      if (due || !host.mem.length) this.push(host.mem, Math.round((r.used / r.total) * 100));
+      if (due || !host.net.length) this.push(host.net, Math.round(host.inBps + host.outBps));
+      if (due) host.pushed = at;
       this.publish();
       cx.notify();
     });
@@ -384,7 +421,7 @@ export default class Sysmon extends View {
     this.published = now;
     const hosts = {};
     for (const [key, host] of Object.entries(this.hosts)) {
-      if (!host.cpu.length) continue;
+      if (!host.cpu.length && !host.mem.length) continue;
       hosts[key] = {
         cpu: [...host.cpu],
         mem: [...host.mem],
@@ -394,7 +431,7 @@ export default class Sysmon extends View {
         inBps: host.inBps,
         outBps: host.outBps,
         netKnown: host.netKnown,
-        live: host.live && now - host.at < STALE,
+        live: host.live && now - host.at < RAIL_STALE,
         at: host.at,
       };
     }
@@ -455,9 +492,9 @@ export default class Sysmon extends View {
     // next tick. Nothing is cleared: its own history is already here.
     if (this.shown !== key) {
       this.shown = key;
-      if (Date.now() - host.at > 800 && !host.busy) cx.timer.after(1, (cx) => this.pump(cx));
+      if (Date.now() - host.at > 400 && !host.busy) cx.timer.after(1, (cx) => this.pump(cx));
     }
-    if (!host.cpu.length) return div();
+    if (!host.total) return div();
 
     // A stale reading goes quiet: `dim` numbers and no cream tick, so nothing on
     // the bar claims to be "now" when the last sample failed.
@@ -468,6 +505,7 @@ export default class Sysmon extends View {
       now: live ? t.accent : t.unknown,
       scale: 100,
     };
+    const last = (values) => (values.length ? values[values.length - 1] : 0);
     const net = Math.max(FLOOR, ...host.net);
 
     return h_flex()
@@ -483,8 +521,8 @@ export default class Sysmon extends View {
         this.metric(t, {
           ...shared,
           label: "CPU",
-          value: `${host.cpu[host.cpu.length - 1]}%`,
-          history: host.cpu,
+          value: host.cpuKnown ? `${last(host.cpu)}%` : "—",
+          history: host.cpu.length ? host.cpu : ZEROS,
           width: 34,
         }))
       .child(div().flex_none().w(1).h(BAR).bg(t.border))
@@ -493,7 +531,7 @@ export default class Sysmon extends View {
           ...shared,
           label: "MEM",
           value: memory(host.used, host.total),
-          history: host.mem,
+          history: host.mem.length ? host.mem : ZEROS,
           width: 58,
         }))
       .child(div().flex_none().w(1).h(BAR).bg(t.border))
@@ -502,7 +540,7 @@ export default class Sysmon extends View {
           ...shared,
           label: "NET",
           value: host.netKnown ? `↓${rate(host.inBps)} ↑${rate(host.outBps)}` : "—",
-          history: host.net,
+          history: host.net.length ? host.net : ZEROS,
           width: 74,
           scale: net,
         }));

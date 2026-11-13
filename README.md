@@ -34,9 +34,9 @@ and the corona read straight through the text.
   machine the shown space lives on — this computer, or the host that space's terminals run on, read
   over the connection Herdr already keeps to it (`uname`, `sysctl`, `iostat`, `vm_stat`,
   `netstat -ib` on macOS; one `sh -c` over `/proc` on Linux — all read-only queries), a number and a
-  twelve-tick sparkline each, sampled every three seconds; the network reads `↓1.2M ↑96K` bytes a
-  second. Every machine with a space is sampled in the background, so switching to another host
-  shows its numbers at once instead of starting from nothing. The mod never runs ssh and holds no
+  twelve-tick sparkline each, read every second; the network reads `↓1.2M ↑96K` bytes a
+  second, and the strips keep 36 s of trend. Every machine with a space is sampled in the
+  background, so switching to another host shows its numbers at once instead of starting from nothing. The mod never runs ssh and holds no
   key, and a machine that cannot answer goes quiet rather than drawing a guess;
 - **the same reading in the rail**: under each machine's name in the space list, one line —
   `CPU 42%`, `MEM 78%` and `↓379K ↑67K`, each with its own sparkline — so the health of every host

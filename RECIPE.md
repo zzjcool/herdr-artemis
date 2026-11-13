@@ -15,7 +15,7 @@ rounded by the mod instead.
 
 The status bar's right end carries a small system monitor: the CPU, memory and network of the
 machine the shown space lives on — this computer, or the host that space's terminals run on — a
-number and a twelve-tick sparkline each, sampled every three seconds. Every machine with a space is
+number and a twelve-tick sparkline each, read every second. Every machine with a space is
 sampled, not just the shown one, so moving to another host shows its numbers at once instead of
 starting from nothing; the same reading is drawn under each machine's name in the rail. It reads
 them over the connection Herdr already has (`exec(…, {on})`, i.e. herdr-core on that machine): no
@@ -159,12 +159,14 @@ Counts are not repeated in the bar: the `agents` list in the rail is where they 
 so each machine is asked in its own dialect, one round trip per sample. macOS: `iostat -c 2 -w 1`
 prints two samples one second apart — the first is the average since boot, the second is the last
 second, so only the last line is read (a single-line answer is refused rather than passed off as
-“now”) — and CPU is `us + sy` from it; `vm_stat` and `netstat -ib` are read in the same breath, and
-memory in use is `(active + wired + compressor) × page size` over `hw.memsize`, asked once. Linux:
-one `sh -c` reads the aggregate `cpu` line of `/proc/stat`, the two memory numbers from
-`/proc/meminfo` and `/proc/net/dev`, sleeps a second and reads `cpu` again — busy is
-`1 − (Δidle + Δiowait) / Δtotal`, and memory in use is `MemTotal − MemAvailable`. Which dialect is
-`uname -s`, asked once per machine and asked again if it fails.
+“now”) — and CPU is `us + sy` from it; `vm_stat` and `netstat -ibn` are read in the same breath, and
+memory in use is `(active + wired + compressor) × pagesize`, both `hw.memsize` and `hw.pagesize`
+asked once. Linux needs no sleeping probe: one `sh -c` reads the aggregate `cpu` line of
+`/proc/stat`, the two memory numbers from `/proc/meminfo` and the interface counters from
+`/proc/net/dev`, and the CPU is the difference from that machine's previous sample —
+`1 − (Δidle + Δiowait) / Δtotal`, memory in use is `MemTotal − MemAvailable`. Which dialect is
+`uname -s`, asked once per machine and asked again if it fails. macOS has no such cumulative CPU
+counter (`kern.cp_time` is gone), which is why it is the one dialect that spends its own second.
 
 **The network is a difference, so it needs the sample before it.** `netstat -ib`'s `Ibytes`/`Obytes`
 and `/proc/net/dev`'s counters are cumulative; a rate is the change since that same machine's
@@ -174,13 +176,15 @@ container bridge is not the host's traffic at all. The first sample of a machine
 reads `—` rather than a false `0`; a counter that goes backwards (a reboot, an interface that came
 back) resets the baseline instead of reporting a spike.
 
-**One tick, two probes.** The shown machine is sampled every tick (3 s); one *other* machine per
-tick as well, stalest first, so five machines cost a probe each every few ticks and the connection is
+**One tick, two probes.** The shown machine is read every tick (1 s); one *other* machine is read
+too, but at a lazier pace — never more often than every 2 s, and only when that machine is more than
+15 s old, stalest first — so five machines cost a probe each every few seconds and the connection is
 never opened five times at once. `busy` per machine keeps a slow answer from stacking under the next
-tick, and every machine keeps its own twelve-sample history — which is what makes switching spaces
-instant: the machine you land on already has its strip and nothing is cleared. All of it is
-read-only, and a sample is one round trip: about 12 ms of CPU here, on a remote host the ~1 s probe
-plus the link.
+tick, and every machine keeps its own history, which is what makes switching spaces instant: the
+machine you land on already has its strip and nothing is cleared. All of it is read-only, and a
+sample is one round trip: measured here, 54 ms to a remote Linux host (`devcloud`) for the whole
+probe, 23 ms for `netstat -ibn` on this Mac, and 1.02 s for the macOS probe, of which `iostat`'s
+second is 1.00 s.
 
 **The snapshot is shared.** After each sample `sysmon` publishes
 `setShared("sysmon.machines", {hosts: {…}})`, and the rail draws the same reading under each
@@ -192,9 +196,12 @@ machine's numbers in `dim` with no cream tick, three in a row and it is asked on
 of every tick, and the rail keeps the last reading it had. `uname` and `hw.memsize` are cached per
 machine, so a host is asked those once, not per sample.
 
-**The first strip is flat.** The first sample fills all twelve ticks with itself, so a fresh window
-shows a line at today's level instead of twelve claims of history it never saw; after that, one
-tick per sample with the oldest dropping off the left — 36 s of history.
+**The numbers move every second; the strips every third one.** A reading is taken each tick and
+painted at once, but a strip only gains a tick every `TREND` 3 s, so its twelve ticks still span
+36 s — a one-second bar whose sparkline covered twelve seconds would be a different reading, not a
+faster one. **The first strip is flat.** The first sample fills all twelve ticks with itself, so a
+fresh window shows a line at today's level instead of twelve claims of history it never saw; after
+that, one tick per trend step with the oldest dropping off the left.
 
 **Nothing here warns.** A lean machine is a line of short ticks, a busy one a comb: that is the
 whole reading, and no colour changes with load, because the mark stays the bar's only status
@@ -230,7 +237,7 @@ line is skipped entirely in the rail's narrow (icon) mode.
 - Dragging the rail's right edge resizes it 220–420 px.
 - The motion in the layout: the mark's pulse (native GPUI `.loop` on opacity, no JS redraws), the
   clock (one tick a second via `cx.timer.every(1000)`, notifying only when the formatted string
-  changed) and the monitor's strips (one tick and one redraw per sample, every three seconds).
+  changed) and the monitor's numbers (one redraw a second).
 
 **Keys** — the layout binds nothing and leaves the person's `keys.json` alone; neither mod binds a
 key. The bar mod runs no program and asks Herdr only to minimise, maximise or close the window; the
@@ -325,15 +332,17 @@ clipped. `artemis-tabs` also points its four Windows button icons at its own fol
 bar reads as one sheet with a 1 px seam, and no overflow, so a squeezed block clips its own content
 rather than painting over its neighbour. It imports `View` and `div` from `gpui-kit`, `h_flex` from
 `gpui-base`, and `exec`, `machines`, `setShared`, `settings`, `spaces`, `theme` from `herdr`. A tick
-happens on `cx.timer.every(3000, …)` — the first one fired at once by `cx.timer.after(1, …)` — and
+happens on `cx.timer.every(1000, …)` — the first one fired at once by `cx.timer.after(1, …)` — and
 `pump()` decides what to ask: this computer, every machine `machines()` knows and every machine a
-space sits on, minus the busy ones, the shown machine first and one other (the stalest) behind it.
-Each machine has its own `hosts[key]` record: three twelve-sample histories, the last reading, the
-`busy` / `missing` / `wait` flags (three failures in a row and it waits 20 ticks, 63 s) and the
-running network counters. Programs, by dialect (`uname -s`, cached per machine): macOS
-`sysctl -n hw.memsize` (cached per machine) and then one `sh -c` of `iostat -c 2 -w 1`, `vm_stat`,
-`netstat -ib`; Linux one `sh -c` reading `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, then
-`/proc/stat` again a second later. Every call carries `{ on: machine }`, so it runs through
+space sits on, minus the busy ones — the shown machine every tick, and one other (the stalest,
+`BG_STALE` 15 s old, at most one every `BG_GAP` 2 s). Each machine has its own `hosts[key]` record:
+three twelve-sample histories, the last reading, the CPU tick counters (Linux) and byte counters
+(both), `pushed` (when the strips last moved), and the `busy` / `missing` / `wait` flags (three
+failures in a row and it waits 60 ticks, a minute). Programs, by dialect (`uname -s`, cached per
+machine): macOS `sysctl -n hw.memsize hw.pagesize` (cached per machine) and then one `sh -c` of
+`iostat -c 2 -w 1` (its own second), `vm_stat | grep` and `netstat -ibn | awk`; Linux one `sh -c`
+reading `head -1 /proc/stat`, `/proc/meminfo` and `grep`ped `/proc/net/dev` — no sleep, the CPU is
+the difference from the previous sample. Every call carries `{ on: machine }`, so it runs through
 herdr-core on that machine — the mod never runs ssh itself. Each metric is a
 label (`w(24)`, 9 px, `dim`), a value (`h_flex().w(34 | 58 | 74).justify_end()` around a 11.5 px
 `div()` in the person's mono face, `muted` while the reading is live and `dim` once it is not) and a
@@ -491,9 +500,12 @@ the content, one for the footer, 10 px between them.
 - **Linux memory is `MemTotal − MemAvailable`, not free plus caches.** `MemAvailable` is the
   kernel's own estimate of what a new workload could get, which is what "used" should mean; adding
   buffers and cache would report the host as nearly full, the way `top`'s first column does.
-- **A remote sample is one round trip with a second of it spent asleep.** Measured here: 30–60 ms of
-  link plus the probe's own `sleep 1`. The poll stays three seconds and `busy` skips ticks on a slow
+- **A remote Linux sample is one round trip with no sleep in it.** Measured here: 54 ms end to end
+  to `devcloud`, against the 1.02 s the macOS probe spends on `iostat`. `busy` skips ticks on a slow
   link rather than stacking samples, so a bad host backs off by itself.
+- **`netstat -ib` without `-n` takes ten seconds; with it, 23 ms.** Measured on this Mac: `-b` asks
+  the resolver for a name per row, and the probe's own timeout (8 s) would kill it — the monitor
+  would read a machine as dead that is answering fine. Keep the `n`.
 - **`vm_stat`'s page size is 16384 on Apple Silicon and 4096 on Intel** — read it from the header
   (`page size of N bytes`); assuming 16384 reports memory 4× off on an Intel Mac.
 - **The block is 496 px for 485 px of content.** 1 px border + 2 × 12 px padding + 460 px
@@ -510,12 +522,13 @@ the content, one for the footer, 10 px between them.
   at all, since the samples start on the timer; the numbers and their strips are built only in the
   window. (This is how a leftover variable name got past the check and into a bar that would not
   re-render.)
-- **`iostat` sleeps one second per sample, and that is the cost.** `top -l 2 -n 0 -s 1` measures the
-  same interval for ~0.7 s of CPU; `iostat` spends ~10 ms and `vm_stat` ~2 ms. Don't swap it for
-  `top`, and don't poll faster than the bar can be read.
+- **`iostat` sleeps one second per sample, and that is the cost of a Mac.** `top -l 2 -n 0 -s 1`
+  measures the same interval for ~0.7 s of CPU; `iostat` spends ~10 ms and `vm_stat` ~2 ms. Linux
+  needs no sleeping probe at all, because its CPU is a tick counter that can be differenced — so a
+  one-second poll costs a Linux host ~50 ms of round trip and a Mac its whole second.
 - **Three failures, then one try a minute.** On a machine that has neither program an every-tick
-  retry would spawn a failing `exec` for as long as the window lives: `missing` sets `wait` to 20
-  ticks after the third failure in a row (63 s to the next try), so a machine without the programs
+  retry would spawn a failing `exec` for as long as the window lives: `missing` sets `wait` to 60
+  ticks after the third failure in a row (a minute to the next try), so a machine without the programs
   costs almost nothing and a transient timeout still recovers. A failed sample also paints nothing as
   “now” — `live` false means `dim` numbers and no cream tick.
 - **The monitor paints no fill of its own.** The plate, its rule and its smoke belong to the
@@ -555,7 +568,7 @@ herdr-app shot /tmp/artemis.png
   faster; both stop when nothing is working or blocked;
 - the status bar's right end reads `CPU 33% ▁▁…` and `MEM 23.1/32G ▁▁…`: two numbers in the bar's
   mono face with `%` and `G` in fixed columns, and two twelve-tick strips whose newest tick is cream
-  and the rest grey-blue, updating every three seconds without the layout moving;
+  and the rest grey-blue, the numbers moving every second and the strips every third one;
 - switch to a space on another machine (`hw-nj`): the same two readings become that host's — `MEM`
   shows its total, 15G rather than 32G — and both strips restart instead of carrying the other
   machine's history; switch back and this computer's return, with nothing of the other host left;
