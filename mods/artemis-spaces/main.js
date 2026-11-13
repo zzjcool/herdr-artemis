@@ -37,6 +37,12 @@ const RAIL_CELL = 32;
 const MINI_BAR = 7;   // px: the tallest tick in the rail's sparkline
 const MINI_H = 17;    // px: the line reserved under a machine's name
 const PL = 8;         // px: that line starts where the header's own icon starts
+// The same two pairs of thresholds the bar uses (`mods/sysmon`): calm, busy,
+// hot. Duplicated on purpose — a mod has to stand alone — and the numbers are
+// the contract between the two.
+const CPU_WARM = 70, CPU_HOT = 90;
+const MEM_WARM = 80, MEM_HOT = 92;
+const heat = (t, pct, warm, hot) => (pct >= hot ? t.blocked : pct >= warm ? t.accent : t.muted);
 const railCell = (el) => h_flex().flex_none().justify_center().child(el);
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
@@ -330,17 +336,18 @@ export default class Spaces extends View {
     // Numbers in the mono face and padded to a fixed width, so a 7 % and a 100 %
     // stand in the same columns; the line is left-aligned end to end and does not
     // lean on the rail's right edge.
-    const metric = (icon, value, values) => h_flex().flex_none().gap(4).items_center()
+    const metric = (icon, value, values, warm, hot) => h_flex().flex_none().gap(4).items_center()
       .child(svg(`mods/artemis-spaces/${icon}.svg`).size(11).flex_none().text_color(t.dim))
-      .child(div().flex_none().font_family(mono).text_size(10).text_color(ink).child(value))
+      .child(div().flex_none().font_family(mono).text_size(10)
+        .text_color(host.live ? heat(t, last(values), warm, hot) : ink).child(value))
       .child(strip(values, 100));
     const last = (values) => values[values.length - 1];
     const pair = host.netKnown
       ? `↓${pad(rate(host.inBps), 4)} ↑${pad(rate(host.outBps), 4)}`
       : "↓   — ↑   —";
     return h_flex().id(`machine-stats-${m ?? "local"}`).h(MINI_H).flex_none().pl(PL).pr(6).gap(8).items_center()
-      .child(metric("cpu", pad(`${last(host.cpu)}%`, 4), host.cpu))
-      .child(metric("mem", pad(`${last(host.mem)}%`, 4), host.mem))
+      .child(metric("cpu", pad(`${last(host.cpu)}%`, 4), host.cpu, CPU_WARM, CPU_HOT))
+      .child(metric("mem", pad(`${last(host.mem)}%`, 4), host.mem, MEM_WARM, MEM_HOT))
       .child(div().flex_none().font_family(mono).text_size(9.5).text_color(ink).child(pair));
   }
 

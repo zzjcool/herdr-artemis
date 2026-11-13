@@ -131,9 +131,16 @@ rates (`↓65K  ↑157K`) — so every digit, `%`, `/`, `G` and both arrows stan
 every sample and the strips never shift. Padding is the point, and behind the text rather than in
 front of it: with a mono face a padded string *is* a column, and hanging it from the left lines the
 digits up, whereas right-aligned `7%` beside `100%` keeps its box and moves its digits.
-A strip is twelve 2 px
+**The number warms with the load**, in two steps from the palette's own ink: `muted` `#b7c2cd` while
+calm, `accent` `#e9d8b9` (its sand) when busy, `blocked` `#e08a6c` (its only red) when hot. Thresholds
+are CPU ≥ 70 % / ≥ 90 % and memory ≥ 80 % / ≥ 92 % — memory is allowed to sit higher before it counts
+as busy, because 80 % of RAM is an ordinary Tuesday and 80 % of every core is not. The network gets no
+threshold: a link has no ceiling worth calling “high”, and 100 Mbit saturates where 10 Gbit idles. A
+reading that has gone stale stays `dim` whatever it says, so nothing on the bar looks urgent when the
+sample behind it failed. A strip is twelve 2 px
 ticks 2 px apart, 1–11 px tall, 46 px in all: the older eleven in `idle` `#5f6a78`, the newest in
-`accent` `#e9d8b9`, so the right edge of a strip is “now”. CPU and memory scale against 0–100 %; the
+`accent` `#e9d8b9`, so the right edge of a strip is “now” — the tip keeps that ink at every load,
+because it marks the newest sample and not the busiest one. CPU and memory scale against 0–100 %; the
 network strip scales against the busiest sample of its own window (at least 4 KB/s), because a link
 has no ceiling worth drawing against. The ticks carry no radius and no fill: they sit straight on the
 plate.
@@ -243,7 +250,8 @@ and 10 px for the values. The line starts **flush with the machine header**, at 
 (`pl(8)`), not under the name: an indent there reads as leftover space, and the header is the thing
 the line belongs to. It speaks the bar's language —
 the same chip and module glyphs at 11 px instead of the words, the same mono face, the same padding
-behind the text — and the whole line is **left-aligned**: the rates used to be pushed against the
+behind the text, with the same thresholds and the same two steps of warmth as the bar — and the whole
+line is **left-aligned**: the rates used to be pushed against the
 rail's edge with `flex_1` + `justify_end`, which made the gap between `MEM` and `↓` breathe with the
 numbers. A row is `icon 11 | 4 | value | 4 | strip 23`, twice, then the rates; the value cells are a
 fixed width, so the strips and the second arrow never move. It is `mods/artemis-spaces` —
@@ -355,7 +363,11 @@ block's radius — so each one squared a corner (measured: a lit row at y 196–
 tab strip, y 4982–4983 from x 30 on the status bar, against a clean arc after). The rule is a
 duplicate anyway: both blocks carry `border {1,"#ffffff1f"}` in the layout, drawn by the frame and
 clipped. `artemis-tabs` also points its four Windows button icons at its own folder
-(`mods/artemis-tabs/win-*.svg`); everything else is byte-for-byte the shipped file.
+(`mods/artemis-tabs/win-*.svg`), and its tab items carry **no outline**: the shipped file drew
+`.border(1).border_color(c.active ? t.border : t.chrome)` on every tab, so the active one was a
+1 px box inside the strip's bordered plate — a box in a box, which is what it looked like. The
+active tab is now a fill (`bg(t.selected)`, the same ink as a selected row) with `.rounded(7)` and
+nothing else; one outline per plate. Everything else is byte-for-byte the shipped file.
 
 **`mods/sysmon`** (no `props`) is one
 `h_flex().size_full().items_center().justify_end().overflow_hidden()` with `.gap(10).px(12)` and

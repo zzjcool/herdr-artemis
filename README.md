@@ -36,7 +36,9 @@ and the corona read straight through the text.
   `netstat -ib` on macOS; one `sh -c` over `/proc` on Linux — all read-only queries), a number and a
   twelve-tick sparkline each, read every second; CPU and memory are named by a chip and a memory
   module rather than by two words, the network reads `↓1.2M ↑96K` bytes a second, every number is
-  padded to a fixed width so no column shifts as it changes, and the strips keep 36 s of trend. Every machine with a space is sampled in the
+  padded to a fixed width so no column shifts as it changes, and the strips keep 36 s of trend. A
+  number warms as its machine fills up — muted, then the palette's sand past 70 % CPU or 80 %
+  memory, then its red past 90 % / 92 % — so a busy host is visible without reading the digits. Every machine with a space is sampled in the
   background, so switching to another host shows its numbers at once instead of starting from nothing. The mod never runs ssh and holds no
   key, and a machine that cannot answer goes quiet rather than drawing a guess;
 - **the same reading in the rail**: under each machine's name in the space list, one left-aligned

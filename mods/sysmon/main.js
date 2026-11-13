@@ -51,6 +51,17 @@ const BG_STALE = 15000;  // a machine nobody is looking at is re-read this often
 const BG_GAP = 2000;     // ... but never more often than this
 const PUBLISH = 2000;    // ms between `setShared`, the rail's cadence (the bar redraws every tick)
 const FLOOR = 4096;      // bytes/s: the network strip's smallest full scale
+
+// Load, in percent of that machine's own total. The number warms in two steps —
+// `muted` while calm, `accent` (the palette's sand) when busy, `blocked` (its
+// only red) when hot — and the rail uses the same two pairs, so a machine reads
+// the same in either place. Memory is allowed to sit higher than CPU before it
+// counts as busy: 80 % of RAM is an ordinary Tuesday, 80 % of every core is not.
+// The network has no threshold — a link has no ceiling worth calling "high", and
+// 100 Mbit is saturated where 10 Gbit is idle.
+const CPU_WARM = 70, CPU_HOT = 90;
+const MEM_WARM = 80, MEM_HOT = 92;
+const heat = (t, pct, warm, hot) => (pct >= hot ? t.blocked : pct >= warm ? t.accent : t.muted);
 const GIB = 1024 ** 3;
 const SHARED = "sysmon.machines";
 
@@ -540,6 +551,9 @@ export default class Sysmon extends View {
     };
     const last = (values) => (values.length ? values[values.length - 1] : 0);
     const net = Math.max(FLOOR, ...host.net);
+    // A stale reading stays `dim` whatever the number says: nothing on the bar
+    // should look urgent when the sample behind it failed.
+    const ink = (ok, pct, warm, hot) => (live && ok ? heat(t, pct, warm, hot) : t.dim);
 
     return h_flex()
       .size_full()
@@ -554,6 +568,7 @@ export default class Sysmon extends View {
         this.metric(t, {
           ...shared,
           icon: "mods/sysmon/cpu.svg",
+          color: ink(host.cpuKnown, last(host.cpu), CPU_WARM, CPU_HOT),
           value: host.cpuKnown ? pad(`${last(host.cpu)}%`, 4) : pad("—%", 4),
           history: host.cpu.length ? host.cpu : ZEROS,
           width: 32,
@@ -563,6 +578,7 @@ export default class Sysmon extends View {
         this.metric(t, {
           ...shared,
           icon: "mods/sysmon/mem.svg",
+          color: ink(true, last(host.mem), MEM_WARM, MEM_HOT),
           value: memory(host.used, host.total),
           history: host.mem.length ? host.mem : ZEROS,
           width: 66,
