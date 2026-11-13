@@ -59,7 +59,7 @@
     20,
     24
   ],
-  "terminal_opacity": 0.25,
+  "terminal_opacity": 0,
   "children": [
     {
       "id": "bar",
@@ -151,6 +151,7 @@
                     "tab": "active",
                     "pane": {
                       "gap": 10,
+                      "background": "#0e162152",
                       "radius": 14,
                       "lone": true,
                       "border": {

@@ -11,10 +11,9 @@ ungraded, placed with `fit: "contain"`. Where the window is a different shape th
 layout paints the frame's own border colour — measured off the picture, `#030304` —
 so the letterbox is not a bar, it is the photograph running out of stars. Nothing
 in the layout paints a background unless it is smoked glass (`#070b1240`, 25 %) or a
-20 % tint (`#0e162133`), so the sky, the disc and its corona are behind the rail, the
-tabs and the panes rather than in a picture block of their own — and a pane's paper
-is 25 % smoke, so the Moon's limb, its craters and the corona read straight through the
-text.
+tint of the same `#0e1621` (20 % on the containers, 32 % on the pane) — and the pane's
+tint is drawn by its frame, so it stops on the corner's arc and the Moon's limb, its craters
+and the corona read straight through the text.
 
 **What it gives you**
 
@@ -22,10 +21,10 @@ text.
   either side (at 2880 px wide); in a tall window it is a band across the middle
   with the same near-black above and below;
 - rounded plates throughout: the rail, the tab strip, the pane and the status bar are
-  sheets of smoke with a 14 px corner (12 on the tab strip, 10 on the status bar), and the
-  frame clips its divider and the terminal's paper to the curve, so no square corner pokes
-  out of it — the header band cannot be clipped that way, so `artemis-pane` paints it rounded
-  to the frame's own radius instead;
+  sheets of smoke with a 14 px corner (12 on the tab strip, 10 on the status bar), and both
+  the frame's fill and its divider stop on the curve, so no square corner pokes out of it —
+  the header band cannot be clipped that way, so `artemis-pane` paints it rounded to the
+  frame's own radius instead;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
 - **a system monitor at the right end of the status bar**: the CPU and memory of the machine the

@@ -6,11 +6,12 @@ from the Moon. The whole frame, uncropped and ungraded, sits behind the entire w
 `fit: "contain"`; where the window is a different shape the layout paints the frame's own
 border colour (`#030304`), so the empty part of the window is not a bar but the photograph
 running out of stars. Nothing is filled flat: the rail, the tab strip, the status bar and the
-panel are 25 % smoke, the pane and everything else take a 20 % tint, so the sky, the disc and its corona sit
-behind the whole interface — and a terminal's paper is 25 % smoke, so the Moon's limb, its
-craters and the corona read straight through the text. Every plate carries a corner — 14 px on the
-rail, the pane and the panel, 12 on the tab strip, 10 on the status bar — and the frame clips its
-header, its divider and the terminal's paper to that curve, so nothing square pokes out of it.
+panel are 25 % smoke, the containers 20 % of the same `#0e1621`, and the pane its own 32 % — so the
+sky, the disc and its corona sit behind the whole interface — and the pane's tint is drawn by the
+frame, so it stops on its corner's arc instead of squaring it. Every plate carries a corner — 14 px
+on the rail, the pane and the panel, 12 on the tab strip, 10 on the status bar — and the frame clips
+its own fill and the header's divider rule to that curve; the header band, which a mod paints, is
+rounded by the mod instead.
 
 The status bar's right end carries a small system monitor: the CPU and memory of the machine the
 shown space lives on — this computer, or the host that space's terminals run on — a number and a
@@ -25,7 +26,7 @@ one `sh -c` over `/proc` on Linux).
 
 **The window.** Root `padding` `14`, `gap` `10`, `titlebar: none`, traffic lights at `[14, 13]`,
 theme `graphite` with the `colors` map below, terminal padding `[20, 24]`, `terminal_opacity`
-`0.25`, and `background` `{ "image": "backgrounds/artemis.jpg", "fit": "contain" }`.
+`0`, and `background` `{ "image": "backgrounds/artemis.jpg", "fit": "contain" }`.
 
 **The ground.** The photograph, whole: 3:2, no crop, no grade, no vignette, no fade. `contain`
 fits it inside the window and centres it. An aspect wider than 3:2 (a 16:10 window) leaves the
@@ -38,12 +39,15 @@ own stars, the Moon's disc in its left third, the corona's ring around it, and S
 as two small dots to the right of the disc.
 
 **Smoked glass.** `colors.background` is `#0e162133` — 20 % of a dark blue-grey — so every node's
-default fill is a thin smoke over the photograph rather than a hole or a slab, and a terminal's
-own paper takes that colour's RGB (`#0e1621`) with `terminal_opacity` `0.25` blending it toward
-the picture behind it: a shell pane reads (4, 6, 8) over the frame's black, and the Moon's limb,
-the craters, the corona and the stars show through it, so the terminal is written on the
-photograph rather than in a box on it. `terminal_padding` `[20, 24]` leaves the picture as a
-mount inside each pane, which is where the glass reads even over the frame's black. `chrome` is
+default fill is a thin smoke over the photograph rather than a hole or a slab, and the pane adds a
+32 % tint of the same colour, `"background": "#0e162152"` in `content.pane`: drawn by the frame,
+clipped to its arc. A shell pane reads (7, 10, 15) over the frame's black, and the Moon's limb, the
+craters, the corona and the stars show through it, so the terminal is written on the photograph
+rather than in a box on it. `terminal_opacity` is `0`, not `0.25`: a terminal's own *paper* is one
+square rect the app draws and does not clip to the pane's radius, so at any alpha above zero it
+squares every corner the frame rounds (measured — see *Watch out*); the pane's fill does the same
+job, on the right side of the curve. `terminal_padding` `[20, 24]` leaves the picture as a mount
+inside each pane, which is where the glass reads even over the frame's black. `chrome` is
 `#00000000` on purpose: the bar paints `chrome` (`mods/artemis-bar/main.js`, `.bg(t.chrome)`), so a
 transparent `chrome` is what keeps the bar's type on the photograph instead of on a band across the
 top of the window. Every plate that *should* be visible names the literal `#070b1240` instead.
@@ -58,14 +62,16 @@ top of the window. Every plate that *should* be visible names the literal `#070b
 | `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 308 px | 10 |
 | `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` | 14 |
 
-**The pane** is a bare frame: it inherits the 20 % tint, gets a `1px` `#ffffff1f` border (the
-pane holding the keyboard takes `accent` `#e9d8b9` instead) and radius 14. The `artemis-pane` header
+**The pane** is a bare frame: it carries its own 32 % tint (`content.pane.background`), gets a
+`1px` `#ffffff1f` border (the pane holding the keyboard takes `accent` `#e9d8b9` instead) and
+radius 14. The `artemis-pane` header
 sits 30 px at the top, always visible: program icon, title, folder, the agent's status (spinner,
 `Needs you` while blocked, a dot when done), and — on hover only — split-right, split-down, zoom
 and close. The header paints `theme().background`, i.e. a second 20 % tint, plus a 1 px `border`
 rule: two thin layers rather than a slab, which is what keeps it from fighting the photograph.
-The frame clips its own fill, its border, the divider rule and the terminal's paper to the arc, but
-a mod's own view is drawn on top of that clip — so the band rounds itself, to the frame's radius
+The frame clips its own fill, its border and the divider rule to the arc, but
+a mod's own view — the header band — is drawn on top of that clip, and the terminal view is not
+clipped at all: so the band rounds itself, to the frame's radius
 minus the 1 px border (13 against 14), and its tint stops on the curve exactly where the pane's
 fill does.
 
@@ -211,7 +217,7 @@ mods/sysmon/                  main.js, mod.json {"place":"none","title":"System 
 ```
 root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors,
               background {image "backgrounds/artemis.jpg", fit "contain"},
-              padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0.25,
+              padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0,
               preview "layouts/artemis.svg"
 ├ bar         block 38   window_drag  mod artemis-bar     (nothing painted)
 └ body        row        gap 0
@@ -234,10 +240,11 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 ```
 
 The pane frame is exactly
-`{"gap":10,"radius":14,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"artemis-pane"},"height":30,"position":"top","reveal":"always"}}`
-— no `background`, so it keeps the layout's 20 % tint, and `radius` 14 like every plate: the frame
-must be stated in `content.pane`, not on the node, or the frame stays square (the node's `radius`
-rounds the block's own fill, not the pane).
+`{"gap":10,"background":"#0e162152","radius":14,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"artemis-pane"},"height":30,"position":"top","reveal":"always"}}`
+— the 32 % tint is the pane's floor, painted by the frame and therefore clipped to its arc; `radius`
+14 like every plate: the frame must be stated in `content.pane`, not on the node, or the frame stays
+square (the node's `radius` rounds the block's own fill, not the pane, and does not clip the tab's
+contents — measured, see *Watch out*).
 
 **`mods/artemis-bar`** (no `props`) is one `h_flex().size_full()`: `.pl(mac ? 78 : 12).pr(4)`,
 `.text_size(11.5)`, `.overflow_hidden()`, and `.bg(t.chrome)` — which is transparent, so the row
@@ -317,27 +324,39 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   2880×5060 once; the plate then occupies the middle 38 % with the same near-black above and
   below. Filling the height would crop the frame — the one thing this layout must not do. Don't
   "fix" it with `cover`.
-- **`terminal_opacity` 0.25 makes a terminal's *paper* see-through, and only its paper.** Measured:
-  a cell the program leaves unpainted (a shell's background, pi's page between its blocks) is
-  composited with the photograph behind it, and its **glyphs keep full brightness** (a crop of the
-  same text measures max 212 at `1.0` and at `0.4`); a cell whose background the program paints
-  itself (a colour swatch, `vim`'s status line, pi's tool blocks) is untouched at every opacity.
-  0.25 is where the frame still reads as a photograph (worst backdrop a glyph ever sits on is
-  ~80, so cream text on it is ~4:1) while the pane keeps a faint floor; `0` leaves no floor at
-  all, and `0.5` and above hides half the picture behind smoke.
+- **`terminal_opacity` is `0`, and the pane's floor is `content.pane.background` instead.** A
+  terminal's *paper* is one square rect drawn by the app, and the pane frame's radius does not clip
+  it. Measured on 0.1.15 at `0.25`, on the frame's flat black letterbox: the pane's inside and the
+  14 px corner **outside** the arc both read (8, 12, 19), against (3, 4, 7) for the bare letterbox —
+  the paper paints past the curve and squares the corner. At `0` it paints nothing, and the frame's
+  own fill (`#0e162152`, clipped) becomes the floor: inside (7, 10, 15), corner (3, 4, 7) — exactly
+  the letterbox, so the corner is round. 32 % is what restores the darkness the 25 % paper used to
+  add; a pane reads within ~2 of what `0.25` did. At any opacity above 0, a translucent paper still
+  leaves a square of itself outside every arc.
+- **A program that paints its own cells still squares a corner it reaches.** `terminal_opacity`
+  touches the paper only: a colour swatch, `vim`'s status line, pi's tool blocks are untouched at
+  every value, and glyphs keep full brightness (a crop of the same text measures max 212 at `1.0`
+  and at `0.4`). A program that fills a pane's corner with a solid colour will show that corner
+  square — no layout field can prevent it. A grey `radius` on the tab block does not help either:
+  the block's `radius` rounds the block's own fill and does not clip the tab's contents (measured:
+  `radius` 14 on the `main` block changed nothing at the pane's corner).
 - **`chrome` is `#00000000` on purpose.** The bar paints `theme().chrome`, so a transparent chrome
   is what keeps its type on the photograph; the four plates name the literal `#070b1240` instead.
   Don't set `chrome` to the plate colour: the bar would grow a band across the top of the window.
 - **A plate's corner is its node's `radius`; the pane's is `content.pane.radius`.** Put the value in
   `content.pane`, not on the node, or the frame stays square.
-- **The pane frame clips its own fill, its focus border, the header's divider rule and the terminal's
-  paper — but not a header mod's own background.** Measured on 0.1.15: a mod's view is drawn square
-  on top of the frame's curve, so with the shipped `pane` header at radius 14 every pane keeps a
-  14 px square of `theme().background` outside the arc (64 there against 75 on the photograph beside
-  it, over a smooth backdrop) — a dark ear at the top of every pane. Don't square the pane to hide
-  it: round the band yourself (`rounded_t(radius - 1)`, `rounded_b` when the header sits at the
-  bottom), which is the one change `mods/artemis-pane` makes. The terminal's paper is a square too,
-  but it paints the same colour on both sides of the arc, so it never shows.
+- **The pane frame clips its own fill, its border and the header's divider rule — and nothing that
+  something else draws.** Two things escape that clip: a **header mod's band** (measured on 0.1.15:
+  the shipped `pane` header at radius 14 keeps a 14 px square of `theme().background` outside the arc
+  — 64 there against 75 on the photograph beside it, over a smooth backdrop, a dark ear at the top
+  of every pane) and the **terminal's paper** (see the bullet above). So: round the band yourself
+  (`rounded_t(radius - 1)`, `rounded_b` when the header sits at the bottom), which is the one change
+  `mods/artemis-pane` makes, and keep the pane's floor in `content.pane.background`, which *is*
+  clipped.
+- **The terminal's paper is square, and the frame does not clip it.** That is why the layout runs
+  `terminal_opacity` 0: at any alpha above 0 the paper squares every pane corner (numbers above).
+  `terminal_padding` does not help — the paper is the terminal view's own background, padding
+  included.
 - **The app may rewrite its own copy of this picture.** After a click it can set the app folder's
   `layouts/artemis.svg` `rx` values to the clicked radii (`3.11` = 14 px at 4.5 px per unit), the
   same pass that writes click radii into `layouts/artemis.json`. The repo's hand-drawn file is the
