@@ -353,18 +353,27 @@ export default class Files extends View {
   // right and down. Growing the content by `d` therefore moves the dragged edge by `d` —
   // the first version doubled it, believing the window recentred, and the edge ran away
   // from the pointer at twice its speed.
-  resized(edge, w0, h0, dx, dy) {
+  resized(edge, w0, h0, dx, dy, leadPx = 0) {
     const view = window.viewport_size();
     let w = w0, h = h0;
-    // The double is measured, not assumed: the overlay window is the whole screen and the
-    // content is centred in it (a 300×300 plate landed at y 1116 of 2530, and a 422×1693
-    // one at 419 of 2530 — both exactly (screen − plate) / 2), so growing `box` by `d`
-    // moves each edge by `d/2`. With the delta used as-is the strip crept along at half
-    // the pointer's speed, the pointer left it after ~25 px and the drag died there.
-    const k = 2;
-    if (edge.includes("e")) w += k * dx;
+    // One for one, and that is a measured answer: doubling it made the frame travel twice
+    // as far as the hand (reported as "两次") — the overlay is content-sized, so `box` is
+    // the frame and each delta is the edge's delta. The half-speed reading that led to the
+    // doubling came from a rounded log line (536.4 → 538.2 printed as 536 → 538) and from a
+    // pixel measurement taken through a stale crop.
+    const k = 1;
+    // The frame leads the pointer by as much as the hand is moving per event, and never
+    // less than 8 px: the loop only keeps going while the strip is under the pointer, and
+    // hit testing uses the frame painted *before* the event, so a fast drag is outside the
+    // plate by the distance it covered since the last one. That is what "脱锚" was — the
+    // drag did not lose its anchor, it stopped receiving events. A slow drag keeps the
+    // tight 8 px, a flick takes the frame ahead of the hand so the strip stays under it.
+    const lead = Math.round(Math.max(8, Math.min(64, (leadPx ?? 0) * 1.2)));
+    // The lead only on the right and bottom edges: those are the ones measured with a hand,
+    // and a lead on the left or top would have to act against the plate's own origin.
+    if (edge.includes("e")) w += k * dx + lead;
     if (edge.includes("w")) w -= k * dx;
-    if (edge.includes("s")) h += k * dy;
+    if (edge.includes("s")) h += k * dy + lead;
     if (edge.includes("n")) h -= k * dy;
     return {
       w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
@@ -384,7 +393,10 @@ export default class Files extends View {
     // An event is proof the pointer is back over the window, which cancels the grace
     // period a `hover(false)` started.
     this.away = 0;
-    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y);
+    const step = Math.hypot(position.x - d.at.x, position.y - d.at.y);
+    d.speed = d.speed * 0.45 + step * 0.55;
+    d.at = { x: position.x, y: position.y };
+    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y, d.speed);
     if (box.w === this.box.w && box.h === this.box.h) return;
     d.moved = true;
     this.box = box;
@@ -404,7 +416,7 @@ export default class Files extends View {
 
   grip(edge, grow = false) {
     const down = (e, cx) => {
-      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false };
+      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false, at: { x: e.position.x, y: e.position.y }, speed: 0 };
       // Re-wrapping the page at every intermediate width is the one thing a drag cannot
       // afford: measured 56 ms per frame on a 73 KB document, against 18 ms for the same
       // frame with the page held still. So the page keeps the size it had when the edge
@@ -419,9 +431,9 @@ export default class Files extends View {
     // 10 px, not 6: the strip has to stay under the pointer for the whole drag.
     return div().id(`files-grip-${edge}`)
       .when(grow, el => el.flex_1()).when(!grow, el => el.flex_none())
-      .when(corner, el => el.w(18).h_full().cursor_nwse_resize().when(edge === "ne" || edge === "sw", g => g.cursor_nesw_resize()))
-      .when(horizontal, el => el.w(16).h_full().cursor_ew_resize())
-      .when(!horizontal && !corner, el => el.h(16).w_full().cursor_ns_resize())
+      .when(corner, el => el.w(22).h_full().cursor_nwse_resize().when(edge === "ne" || edge === "sw", g => g.cursor_nesw_resize()))
+      .when(horizontal, el => el.w(20).h_full().cursor_ew_resize())
+      .when(!horizontal && !corner, el => el.h(20).w_full().cursor_ns_resize())
       .on_mouse_down("left", down)
       .on_mouse_move((e, cx) => this.dragged(e.position, cx))
       .on_mouse_up("left", (_e, cx) => this.endDrag(cx));
@@ -1071,14 +1083,14 @@ export default class Files extends View {
       // A press anywhere else means the last drag is over — the case a release outside
       // the plate leaves behind.
       .on_mouse_down_out((_e, cx) => this.endDrag(cx, "down-out"))
-      // Leaving ends the drag, but not at the first frame outside: a pointer that moves
-      // further in one event than the frame is wide is outside for an instant, and the
-      // drag must survive that. It does not survive the quarter second after it.
+      // Leaving ends the drag, but only after a full second: a fast drag outruns the frame
+      // for a few frames at a time, and the strip is tiny compared to the distance a hand
+      // covers in 16 ms. Ending at the first frame outside is what "脱锚" was.
       .on_hover((hovered, cx) => {
         if (hovered) { this.away = 0; return; }
         this.away = (this.away ?? 0) + 1;
         const at = this.away;
-        cx.timer.after(250, cx => { if (this.drag && this.away === at && at > 0) this.endDrag(cx, "hover-grace"); });
+        cx.timer.after(1000, cx => { if (this.drag && this.away === at && at > 0) this.endDrag(cx, "hover-grace"); });
       })
       .child(h_flex().flex_none().h(14)
         .child(this.grip("nw")).child(this.grip("n", true)).child(this.grip("ne")))
