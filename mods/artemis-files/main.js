@@ -1013,8 +1013,11 @@ export default class Files extends View {
     // in `this.box` is the window's size, and these grips are its edges. The left and top
     // edges are not here — growing that way would need the window to move, which an open
     // overlay cannot be asked to do.
+    // `background` in this theme is 20 % smoke over the photograph — right for a pane in the
+    // layout, wrong for a window floating over terminals, where it lets their text through.
+    // `solid` is the token that means an opaque surface.
     return v_flex().id("files-window").w(this.box.w).h(this.box.h)
-      .rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border)
+      .rounded(10).overflow_hidden().bg(t.solid).border_1().border_color(t.border)
       .on_mouse_up("left", (_e, _cx) => { if (this.drag) { setShared("artemis-files.windowBox", this.box); this.drag = null; } })
       .child(this.grip("n"))
       .child(h_flex().flex_1().min_h(0).items_stretch()

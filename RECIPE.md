@@ -438,6 +438,12 @@ something the host does not do by itself — a window "does not take the keyboar
 view asks for a focus handle and `track_focus`es it, and only then does `on_key_down` on the root see the
 escape.
 
+A window's surface is **`solid`**, not `background`. This theme's `background` is `#0e162133` — 20 %
+smoke over the photograph, which is exactly right for a pane that sits in the layout and exactly wrong
+for a window floating above terminals: at 20 % the terminal's own lines read straight through the page.
+`solid` (`#111820`) is the token that means an opaque surface, and `popover` (`#0a1017`) is the other
+one. The panel keeps the smoke, because inside the layout that is the look.
+
 The window is **resizable by its edges**, and the whole mechanism is worth writing down because the host
 draws no resize handle and offers no API to resize an open overlay. What it does offer is the sentence
 "as big as its content unless width/height": so the overlay is opened with **no** width or height, and
