@@ -6,7 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
-import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
+import { spaces, panes, focused, appHome, closeOverlay, exec, hc, home, notify, openOverlay, props, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -259,6 +259,50 @@ export default class Files extends View {
     // Markdown has two right answers — the rendered page and the text it was written
     // as — so the choice is remembered rather than re-made on every file.
     this.mdMode = shared("artemis-files.mdMode") === "source" ? "source" : "rendered";
+    // A window is a second copy of this mod, with no folder of its own: it picks up the
+    // request `popout()` leaves behind. Long enough after `init` for `props()` to be
+    // filled — it is empty here, which cost a session once.
+    this.wide = false; this.overlay = null;
+    cx.timer.after(120, cx => this.adopt(cx));
+  }
+
+  // The panel's copy lives in a layout; a window's copy has `props().overlay` and nothing
+  // else, so it draws one document and no tree.
+  adopt(cx) {
+    const spec = props();
+    if (!spec?.overlay) return;
+    this.wide = true; this.overlay = spec.overlay;
+    const request = shared("artemis-files.window");
+    if (request?.file && Date.now() - (request.at ?? 0) < PICKUP) {
+      this.windowAt = request.at ?? 0;
+      this.root = request.root ?? null; this.on = request.on ?? null;
+      this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
+      this.show(request.file, cx);
+    }
+    // Whether the host replaced the window or handed the same one this request, the
+    // second file opened from the sidebar has to arrive: the request is newer than the
+    // one this copy took, so it is picked up here.
+    cx.timer.every(600, cx => this.pickup(cx));
+    cx.notify();
+  }
+
+  pickup(cx) {
+    const request = shared("artemis-files.window");
+    if (!request?.file || (request.at ?? 0) <= (this.windowAt ?? 0)) return;
+    this.windowAt = request.at ?? 0;
+    this.root = request.root ?? null; this.on = request.on ?? null;
+    this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
+    this.trail = []; this.status = null;
+    this.show(request.file, cx);
+  }
+
+  // The sidebar is a third of a thousand pixels: a table and a code block both want more.
+  // The window remembers where it was dropped (`key`), so opening it again replaces the
+  // one already open instead of stacking a second.
+  popout(cx) {
+    if (!this.file) return;
+    setShared("artemis-files.window", { file: this.file, root: this.root, on: this.on, at: Date.now() });
+    openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview", width: 0.62, height: 0.82 });
   }
 
   watch(root, cx) {
@@ -271,8 +315,10 @@ export default class Files extends View {
     });
   }
 
+  // A window's copy has no `location()` to agree with — it was handed its folder — so it
+  // is asked only whether it is still the same context, not whether the space agrees.
   current(context) {
-    return this.context === context && key() === context.key;
+    return this.context === context && (this.wide || key() === context.key);
   }
 
   async loadFolder(path, context) {
@@ -285,6 +331,7 @@ export default class Files extends View {
   }
 
   refresh(cx) {
+    if (this.wide) return;
     const { cwd, on } = location(), next = key();
     if (next !== this.context?.key) {
       if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file });
@@ -446,7 +493,7 @@ export default class Files extends View {
   // One fence, drawn as its own block: a bordered sheet with the language in its
   // corner and a real editor inside, so the colours are the ones a `.py` file gets.
   codeBlock(block, index) {
-    const t = theme(), size = 11.5;
+    const t = theme(), size = this.wide ? 12.5 : 11.5;
     const width = Math.max(160, (this.mdBox ?? 300) - 24 - (block.quote ? 8 : 0));
     const perLine = Math.max(24, Math.floor((width - 16) / (size * 0.6)));
     const visual = block.text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(columns(line) / perLine)), 0);
@@ -648,7 +695,7 @@ export default class Files extends View {
     if (chunks.filter(chunk => chunk.kind === "code").length > 60) return null;
     return chunks.map(block => {
       if (block.kind === "code") {
-        return { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: 11.5 }) };
+        return { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: this.wide ? 12.5 : 11.5 }) };
       }
       if (block.kind === "image") {
         // A remote picture (http) is not fetched: the host's image loader has no URL
@@ -818,17 +865,25 @@ export default class Files extends View {
   }
 
   render(cx) {
-    if (key() !== this.context?.key) this.refresh(cx);
+    if (!this.wide && key() !== this.context?.key) this.refresh(cx);
     const t = theme();
+    // A window has room, so the page is set a little larger there.
+    const prose = this.wide ? 14 : 12.5;
     return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .when(Boolean(this.file), el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted)
+        .when(Boolean(this.file) && !this.wide, el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted)
           .on_click((_e, cx) => { this.show(this.trail.pop() ?? null, cx); cx.notify(); }).child("←")))
         .child(div().font_semibold().child("Files"))
         .when(this.kind === "markdown" && Boolean(this.file), el => el.child(
           h_flex().flex_none().ml(6).gap(2).p(2).rounded(7)
             .child(this.chip("Rendered", "rendered", t, cx))
             .child(this.chip("Source", "source", t, cx))))
+        .when(Boolean(this.file) && !this.wide, el => el.child(h_flex().id("files-popout").flex_none().h(21).px(8).rounded(5).items_center()
+          .cursor_pointer().text_size(11).text_color(t.dim).hover(s => s.bg(t.hover))
+          .on_click((_e, cx) => this.popout(cx)).child("Wide")))
+        .when(this.wide, el => el.child(h_flex().id("files-close").flex_none().h(21).px(8).rounded(5).items_center()
+          .cursor_pointer().text_size(11).text_color(t.dim).hover(s => s.bg(t.hover))
+          .on_click(() => closeOverlay(this.overlay)).child("Close")))
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? "")))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
@@ -836,9 +891,9 @@ export default class Files extends View {
       .when(Boolean(this.image), el => el.child(this.picture()))
       // More fences than the editor budget allows: one renderer for the whole page,
       // colours and all the words.
-      .when(this.markdown !== null && this.mdMode === "rendered" && !this.blocks, el => el.child(div().id("files-md").flex_1().min_h(0).text_size(12.5)
+      .when(this.markdown !== null && this.mdMode === "rendered" && !this.blocks, el => el.child(div().id("files-md").flex_1().min_h(0).text_size(prose)
         .child(TextView.markdown(`files-md-all-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
-      .when(this.markdown !== null && this.mdMode === "rendered" && Boolean(this.blocks), el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
+      .when(this.markdown !== null && this.mdMode === "rendered" && Boolean(this.blocks), el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(prose)
         .overflow_y_scrollbar().p(10)
         .on_size_change((size, cx) => {
           if (Math.abs((this.mdBox ?? 0) - size.width) < 1) return;

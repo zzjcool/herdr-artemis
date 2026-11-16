@@ -49,8 +49,9 @@ and the corona read straight through the text.
   tables, quotes and links as the host draws them, every code block coloured by the same
   highlighter that colours a source file under its language name, every picture drawn from the folder the
   document lives in — `![]()`, `<img>`, the reference forms, an optional `{width=…}` — alone on its
-  line or inside a sentence, and every relative link opening in the panel with the back arrow to walk
-  it — with a `Rendered` / `Source` switch in the header, and it remembers which one you
+  line or inside a sentence, every relative link opening in the panel with the back arrow to walk it,
+  and a **Wide** button that opens the same page in its own window when a third of a thousand pixels
+  is not enough room — with a `Rendered` / `Source` switch in the header, and it remembers which one you
   chose — and
   everything else opens as read-only source with its syntax colours. Pictures from another machine
   come across the same ssh the download uses and are kept in Herdr's own folder, where `image()`

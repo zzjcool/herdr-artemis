@@ -420,6 +420,18 @@ header — **Rendered** and **Source** — and the choice is remembered in
 next time. Source is the same read-only editor a `.js` gets, built on the way into the mode rather
 than in `render`, since `EditorState.new` needs a live host call.
 
+The sidebar is a third of a thousand pixels wide, which is not a width to read a table in, so the
+header carries **Wide**: `openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview",
+width: 0.62, height: 0.82 })` — a real window, not a dialog — and the window's copy of the mod draws
+the same page with no tree, a size larger. Three things had to be arranged for that copy to work at
+all, and each of them was a silent failure first: a window's copy has no `props()` until after `init`
+(it is empty there — an `after(120)` timer is when it is filled), it has no `location()` either, so
+`current()` — which used to compare `key()` — is asked only whether it is still the same context,
+and the file cannot ride in the overlay's props, so the button leaves a request in
+`setShared("artemis-files.window", { file, root, on, at })` and the window picks it up. `key` is
+constant on purpose: opening Wide again replaces the window where it was dropped instead of stacking
+a second one, and a 600 ms `pickup()` lets that same window follow a second file from the sidebar.
+
 **Rendered** is not one `TextView`: the document is cut at its code fences, because the host's
 renderer cannot colour a fence and a mod should not re-invent headings, lists, tables, quotes and
 links. Prose chunks go through `TextView.markdown` unchanged — that is what draws the table in the
@@ -568,6 +580,11 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **An overlay's copy is not the panel's copy.** Same mod, different world: no `props()` at `init`
+  time, no `location()` afterwards. A guard built out of `location()` (`current()` compared `key()`)
+  therefore rejected every load in the window, and the window sat on "Loading file…" while the panel
+  beside it drew the same file. Two facts worth keeping: `props()` is filled only after the first
+  render, and anything in this mod that asks where it is has to answer for both shapes.
 - **A document may be showing the syntax you are parsing.** The first version of the picture reader
   turned every `<img src="x.png">` in RECIPE into a broken picture, because RECIPE documents exactly
   that tag. Inline code spans are found first (`codeSpans`) and matches inside them are left alone.
