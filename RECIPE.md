@@ -517,6 +517,12 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **One field, one kind of thing.** A picture block's load state was called `state`, the same name a
+  fence uses for its retained `EditorState` — so `release()` walked the blocks and called
+  `release()` on the *string* `"ready"`: `TypeError: not a function`, thrown inside a timer, which
+  showed up only as a link that did nothing. The picture's field is `status` now and the release
+  walks code blocks only. Any field that holds both a word and an object is a bug waiting for the
+  one place that iterates it.
 - **`Editor` does not measure itself, and `TextView` does not take colours.** Both were measured in a
   throwaway overlay mod: an `Editor` with no `h()` paints two lines and stops (so a code sheet inside
   a document must compute its height from its own line count), and `<span style="color:#e08a6c">`

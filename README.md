@@ -46,9 +46,11 @@ and the corona read straight through the text.
   sparkline — so the health of every host is one glance away, without switching to a space on it;
 - **a Files panel that shows you the file**: clicking a row previews it — a picture is drawn
   (PNG, JPEG, GIF, WebP, BMP, SVG, scaled to fit and never enlarged), markdown is *rendered* — headings, lists,
-  tables, quotes and links as the host draws them, and every code block coloured by the same
-  highlighter that colours a source file, under its language name — with a `Rendered` / `Source`
-  switch in the header, and it remembers which one you chose — and
+  tables, quotes and links as the host draws them, every code block coloured by the same
+  highlighter that colours a source file under its language name, every `![](shot.png)` drawn from
+  the folder the document lives in, and every relative link opening in the panel with the back arrow
+  to walk it — with a `Rendered` / `Source` switch in the header, and it remembers which one you
+  chose — and
   everything else opens as read-only source with its syntax colours. Pictures from another machine
   come across the same ssh the download uses and are kept in Herdr's own folder, where `image()`
   can read them, named by their content so an edited file is a new name. Right-click a row for

@@ -33,6 +33,24 @@ const lastLine = (text) => String(text ?? "").trim().split("\n").filter(Boolean)
 // and each fence becomes a real `Editor`, which is the only thing in the shell that
 // knows how to colour code. `TextView` cannot: inline CSS is not supported, so a
 // fence drawn by it is monochrome no matter what.
+// `dir/README.md` + `../img/a.png` → `img/a.png`, or null when it climbs out of the
+// folder the panel is showing.
+export function resolve(base, link) {
+  const out = [];
+  for (const part of `${base}/${link}`.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") { if (!out.length) return null; out.pop(); continue; }
+    out.push(part);
+  }
+  return out.join("/");
+}
+
+// Every block of a path but the last: "docs/a/b.md" → "docs/a".
+export const folderOf = (path) => {
+  const cut = String(path ?? "").lastIndexOf("/");
+  return cut < 0 ? "" : path.slice(0, cut);
+};
+
 export function blocks(text) {
   const out = [], prose = [];
   let code = null;
@@ -45,6 +63,13 @@ export function blocks(text) {
     } else if (fence) {
       flush();
       code = { lang: fence[1].toLowerCase(), lines: [] };
+    } else if (/(^|[^\w])!\[[^\]]*\]\(\s*[^)\s]+(\s+["'][^"']*["'])?\s*\)\s*$/.test(line) && /^\s*!\[/.test(line)) {
+      // A picture alone on a line: the host would draw it as a broken image with
+      // alt text, because `TextView` resolves `![](...)` against Herdr's folder and
+      // not against the markdown file. So it becomes a block of its own.
+      flush();
+      const match = /^\s*!\[([^\]]*)\]\(\s*([^)\s]+)/.exec(line);
+      out.push({ kind: "image", alt: match[1], src: match[2] });
     } else prose.push(line);
   }
   if (code) out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") });
@@ -91,6 +116,7 @@ export default class Files extends View {
   init(_props, cx) {
     this.saved = new Map();
     this.entries = new Map(); this.folders = new Set(); this.pending = new Set(); this.marks = {};
+    this.trail = [];
     this.refresh(cx);
     cx.timer.every(10000, cx => this.refresh(cx));
     // The right-click menu is an overlay: it cannot call back into this view, so it
@@ -199,7 +225,10 @@ export default class Files extends View {
         if (this.kind === "markdown") {
           this.markdown = text;
           if (this.mdMode === "source") this.code = this.editor(text, "markdown");
-          else this.blocks = this.build(text);
+          else {
+            this.blocks = this.build(text, path);
+            this.loadImages(context, cx);
+          }
           return;
         }
         if (text.includes("\0")) { this.fileError = "No preview for this kind of file · right-click to download it"; return; }
@@ -222,6 +251,42 @@ export default class Files extends View {
       folding: false,
       soft_wrap: options.soft_wrap ?? false,
       syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6, variable: t.foreground, operator: t.muted, punctuation: t.muted, boolean: t.ansi3 } });
+  }
+
+  // A picture inside a document, drawn at the width it has room for and never past
+  // its own pixels; a tall one is capped and scaled to keep its shape.
+  imageBlock(block) {
+    const t = theme(), width = Math.max(80, (this.mdBox ?? 320) - 20);
+    const note = (text) => div().flex_none().mb(10).py(8).px(10).rounded(6).border_1().border_color(t.border)
+      .text_size(11).text_color(t.dim).child(text);
+    if (block.linked) return note(`${block.alt || "image"} · ${block.src} (remote pictures are not fetched)`);
+    if (block.status === "failed") return note(`${block.alt || block.path} · cannot read this picture`);
+    if (!block.picture) return note(`${block.alt || block.path} · loading…`);
+    const { width: iw, height: ih } = block.picture;
+    let w = width, h = null;
+    if (iw && ih) {
+      const scale = Math.min(width / iw, 480 / ih, 1);
+      w = Math.max(1, Math.round(iw * scale));
+      h = Math.max(1, Math.round(ih * scale));
+    }
+    return h_flex().flex_none().mb(10).justify_center()
+      .child(h && w ? image(block.picture.path).w(w).h(h) : image(block.picture.path).w(width));
+  }
+
+  // A link in a rendered page: an address goes to the system browser, a path opens in
+  // this panel (that is what a README's relative links are for), and the trail behind
+  // it is what the back arrow walks.
+  follow(url, cx) {
+    const raw = String(url ?? "").trim();
+    if (/^(https?|mailto):/i.test(raw)) return cx.open_url(raw);
+    if (raw.startsWith("#")) return;
+    const target = raw.split("#")[0];
+    if (!target) return;
+    const path = resolve(folderOf(this.file ?? ""), target.replace(/^\.\//, ""));
+    if (!path) return;
+    if (this.trail.length >= 16) this.trail.shift();
+    this.trail.push(this.file);
+    this.show(path, cx);
   }
 
   // One fence, drawn as its own block: a bordered sheet with the language in its
@@ -253,7 +318,10 @@ export default class Files extends View {
       // hidden editor and both previews can be laid out at once.
       this.code?.release();
       this.code = null;
-      if (this.markdown && !this.blocks) this.blocks = this.build(this.markdown);
+      if (this.markdown && !this.blocks) {
+        this.blocks = this.build(this.markdown, this.file);
+        this.loadImages(this.context, cx);
+      }
     }
     this.touch(cx);
   }
@@ -415,15 +483,44 @@ export default class Files extends View {
   }
 
   // Every fence gets a retained editor, so they are built (and released) in one place.
-  build(text) {
-    return blocks(text).map(block => block.kind === "code"
-      ? { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: 11.5 }) }
-      : block);
+  build(text, path) {
+    return blocks(text).map(block => {
+      if (block.kind === "code") {
+        return { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: 11.5 }) };
+      }
+      if (block.kind === "image") {
+        // A remote picture (http) is not fetched: the host's image loader has no URL
+        // and a document should not be able to make the window download things.
+        const linked = /^([a-z]+:)?\/\//i.test(block.src);
+        return { ...block, linked, path: linked ? null : resolve(folderOf(path), block.src) };
+      }
+      return block;
+    });
+  }
+
+  // Pictures are read after the page is on screen, one at a time, through the same
+  // three doors a single-file preview uses.
+  async loadImages(context, cx) {
+    for (const block of this.blocks ?? []) {
+      if (block.kind !== "image" || block.picture || block.status) continue;
+      if (!block.path) { block.status = "linked"; continue; }
+      block.status = "loading";
+      this.touch(cx);
+      try {
+        block.picture = await this.cache(await this.bytesOf(`${this.root}/${block.path}`, this.on), extOf(block.path));
+        block.status = "ready";
+      } catch {
+        block.status = "failed";
+      }
+      if (this.current(context)) this.touch(cx);
+    }
   }
 
   release() {
     this.code?.release(); this.code = null;
-    for (const block of this.blocks ?? []) block.state?.release();
+    // Only a fence has a retained editor; a picture's `status` is a word, and calling
+    // `release()` on it is how this line threw "not a function" the first time.
+    for (const block of this.blocks ?? []) if (block.kind === "code") block.state?.release();
     this.blocks = null; this.markdown = null; this.image = null;
   }
 
@@ -438,14 +535,9 @@ export default class Files extends View {
         await fs.mkdir(dir, { recursive: true }).catch(() => null);
         // Three ways in, cheapest and most reliable first: `fs` for a local file, the
         // core connection for another machine's, and only then a copy process.
-        const bytes = (on ? await this.coreBytes(source, on).catch(() => null) : await fs.readFile(expanded(source)).catch(() => null))
-          ?? await this.copied(source, on);
-        const name = cacheName(bytes, ext);
-        if (!(await fs.exists(`${dir}/${name}`).catch(() => false))) await fs.writeFile(`${dir}/${name}`, bytes);
+        const picture = await this.cache(await this.bytesOf(source, on), ext);
         if (this.file !== path || !this.current(context)) return;
-        const size = dimensions(bytes, ext);
-        this.image = { path: `${CACHE}/${name}`, width: size?.width ?? null, height: size?.height ?? null };
-        this.keep(name);
+        this.image = picture;
       } catch (e) {
         if (this.file === path && this.current(context)) {
           this.fileError = `No preview of this picture · ${lastLine(e?.message ?? e)}`;
@@ -454,6 +546,25 @@ export default class Files extends View {
         if (this.file === path && this.current(context)) this.touch(cx);
       }
     });
+  }
+
+  // Three doors, cheapest first: `fs` for a local file, the core connection for
+  // another machine's, and only then a copy process.
+  async bytesOf(source, on) {
+    return (on ? await this.coreBytes(source, on).catch(() => null) : await fs.readFile(expanded(source)).catch(() => null))
+      ?? await this.copied(source, on);
+  }
+
+  // Into Herdr's own folder under the hash of the bytes, which is both the cache key
+  // and the answer to "has this picture changed".
+  async cache(bytes, ext) {
+    const dir = `${appHome()}/${CACHE}`;
+    await fs.mkdir(dir, { recursive: true }).catch(() => null);
+    const name = cacheName(bytes, ext);
+    if (!(await fs.exists(`${dir}/${name}`).catch(() => false))) await fs.writeFile(`${dir}/${name}`, bytes);
+    this.keep(name);
+    const size = dimensions(bytes, ext);
+    return { path: `${CACHE}/${name}`, width: size?.width ?? null, height: size?.height ?? null };
   }
 
   // Another machine's bytes through the connection herdr-core already holds: one
@@ -521,7 +632,11 @@ export default class Files extends View {
       if (out.length >= TOTAL) break;
       const path = prefix ? `${prefix}/${entry.name}` : entry.name, open = this.folders.has(path), mark = this.marks[`${this.root}/${path}`];
       out.push(h_flex().id(`file-${path}`).h(28).flex_none().pl(8 + depth * 18).pr(8).gap(7).items_center().rounded(7).cursor_pointer().hover(s => s.bg(t.hover))
-        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx) : this.show(path, cx))
+        .on_click((_e, cx) => {
+          if (entry.dir) return this.toggle(path, cx);
+          this.trail = [];
+          this.show(path, cx);
+        })
         .on_mouse_down("right", (_e, cx) => this.menu(path, entry, cx))
         .child(entry.dir ? svg(`mods/artemis-files/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim) : div().w(12).flex_none())
         .child(svg(`mods/artemis-files/${entry.dir ? "folder" : "file"}.svg`).size(14).flex_none().text_color(t.muted))
@@ -537,7 +652,8 @@ export default class Files extends View {
     const t = theme();
     return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .when(Boolean(this.file), el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted).on_click((_e, cx) => { this.show(null); cx.notify(); }).child("←")))
+        .when(Boolean(this.file), el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted)
+          .on_click((_e, cx) => { this.show(this.trail.pop() ?? null, cx); cx.notify(); }).child("←")))
         .child(div().font_semibold().child("Files"))
         .when(this.kind === "markdown" && Boolean(this.file), el => el.child(
           h_flex().flex_none().ml(6).gap(2).p(2).rounded(7)
@@ -555,10 +671,13 @@ export default class Files extends View {
           this.mdBox = size.width;
           this.touch(cx);
         })
-        .children((this.blocks ?? []).map((block, i) => block.kind === "code"
-          ? this.codeBlock(block, i)
-          : div().id(`files-prose-${i}`).flex_none().child(
-            TextView.markdown(`files-md-${i}-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, block.text).selectable(true))))))
+        .children((this.blocks ?? []).map((block, i) => {
+          if (block.kind === "code") return this.codeBlock(block, i);
+          if (block.kind === "image") return this.imageBlock(block);
+          return div().id(`files-prose-${i}`).flex_none().child(
+            TextView.markdown(`files-md-${i}-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, block.text)
+              .selectable(true).on_link_click((url, cx) => this.follow(url, cx)));
+        }))))
       .when(Boolean(this.code) && !(this.kind === "markdown" && this.mdMode === "rendered"),
         el => el.child(Editor.new(this.code).flex_1().min_h(0)))
       .when(Boolean(this.file) && !this.code && !this.markdown && !this.image,
