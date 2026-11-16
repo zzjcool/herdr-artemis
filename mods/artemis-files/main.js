@@ -353,27 +353,20 @@ export default class Files extends View {
   // right and down. Growing the content by `d` therefore moves the dragged edge by `d` —
   // the first version doubled it, believing the window recentred, and the edge ran away
   // from the pointer at twice its speed.
-  resized(edge, w0, h0, dx, dy, leadPx = 0) {
+  resized(edge, w0, h0, dx, dy) {
     const view = window.viewport_size();
     let w = w0, h = h0;
-    // One for one, and that is a measured answer: doubling it made the frame travel twice
-    // as far as the hand (reported as "两次") — the overlay is content-sized, so `box` is
-    // the frame and each delta is the edge's delta. The half-speed reading that led to the
-    // doubling came from a rounded log line (536.4 → 538.2 printed as 536 → 538) and from a
-    // pixel measurement taken through a stale crop.
-    const k = 1;
-    // The frame leads the pointer by as much as the hand is moving per event, and never
-    // less than 8 px: the loop only keeps going while the strip is under the pointer, and
-    // hit testing uses the frame painted *before* the event, so a fast drag is outside the
-    // plate by the distance it covered since the last one. That is what "脱锚" was — the
-    // drag did not lose its anchor, it stopped receiving events. A slow drag keeps the
-    // tight 8 px, a flick takes the frame ahead of the hand so the strip stays under it.
-    const lead = Math.round(Math.max(8, Math.min(64, (leadPx ?? 0) * 1.2)));
-    // The lead only on the right and bottom edges: those are the ones measured with a hand,
-    // and a lead on the left or top would have to act against the plate's own origin.
-    if (edge.includes("e")) w += k * dx + lead;
+    // The plate is centred in the overlay window — `window.bounds()` is the whole screen
+    // even for a 300×300 plate, and the plate lands at (screen − plate) / 2 — so growing
+    // `box` by `d` moves each edge by `d/2`, and the box has to take twice the pointer's
+    // movement for the dragged edge to stay under it. Confirmed the hard way: at one for
+    // one the frame crawled at half speed and the drag died; at twice the same hand
+    // reported the frame travelling twice as far, which was the same bug seen through a
+    // frame that was not centred yet (the plate is only centred while a drag is running).
+    const k = 2;
+    if (edge.includes("e")) w += k * dx;
     if (edge.includes("w")) w -= k * dx;
-    if (edge.includes("s")) h += k * dy + lead;
+    if (edge.includes("s")) h += k * dy;
     if (edge.includes("n")) h -= k * dy;
     return {
       w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
@@ -390,39 +383,11 @@ export default class Files extends View {
   dragged(position, cx) {
     const d = this.drag;
     if (!d) return;
-    // An event is proof the pointer is back over the window, which cancels the grace
-    // period a `hover(false)` started.
-    this.away = 0;
-    const step = Math.hypot(position.x - d.at.x, position.y - d.at.y);
-    d.speed = d.speed * 0.45 + step * 0.55;
-    d.at = { x: position.x, y: position.y };
-    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y, d.speed);
+    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y);
     if (box.w === this.box.w && box.h === this.box.h) return;
     d.moved = true;
     this.box = box;
     this.touch(cx);
-  }
-
-  // The press is the last thing that has to be under the pointer. From then on the drag
-  // follows the *window's* mouse position, not a hovered element: `on_mouse_move` is only
-  // delivered while the pointer is over the element it belongs to, and this API has no
-  // capture, so a hand that outran the frame stopped producing events altogether and the
-  // drag sat still until the pointer came back. `window.mouse_position()` keeps being
-  // updated while a button is held — even outside the window — so it is polled for as long
-  // as the press lasts. It does not update on plain hovering, which is what makes this a
-  // drag and not a general pointer tracker.
-  pump(cx) {
-    if (!this.drag) return;
-    const m = window.mouse_position(), d = this.drag;
-    // A reading in another coordinate space would be a jump, not a movement: 200 px in
-    // 16 ms is 12 000 px/s, faster than a hand, so anything larger is ignored rather than
-    // allowed to fling the frame across the screen.
-    const near = Math.abs(m.x - d.px) <= 200 && Math.abs(m.y - d.py) <= 200;
-    if (near && (m.x !== d.px || m.y !== d.py)) {
-      d.px = m.x; d.py = m.y;
-      this.dragged(m, cx, "poll");
-    }
-    cx.timer.after(16, cx => this.pump(cx));
   }
 
   endDrag(cx) {
@@ -438,15 +403,14 @@ export default class Files extends View {
 
   grip(edge, grow = false) {
     const down = (e, cx) => {
-      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false, at: { x: e.position.x, y: e.position.y }, speed: 0, px: e.position.x, py: e.position.y };
-      this.pump(cx);
+      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false };
       // Re-wrapping the page at every intermediate width is the one thing a drag cannot
       // afford: measured 56 ms per frame on a 73 KB document, against 18 ms for the same
       // frame with the page held still. So the page keeps the size it had when the edge
       // was taken — drawn clipped to the new frame — and takes the new width once, on
       // release. The pointer still moves the edge frame by frame; the text follows at the
       // end, which is the difference between a smooth drag and a slideshow.
-      this.freeze = this.innerSize ?? { w: Math.max(1, this.box.w - 12), h: Math.max(1, this.box.h - 54) };
+      this.freeze = this.innerSize ?? { w: Math.max(1, this.box.w - 12), h: Math.max(1, this.box.h - 28) };
       cx.stop_propagation();
     };
     const horizontal = edge === "e" || edge === "w";
@@ -1099,22 +1063,8 @@ export default class Files extends View {
     // `background` in this theme is 20 % smoke over the photograph — right for a pane in the
     // layout, wrong for a window floating over terminals, where it lets their text through.
     // `solid` is the token that means an opaque surface.
-    return v_flex().id("files-window").w(this.box.w).h(this.box.h)
+    const plate = v_flex().id("files-plate").w(this.box.w).h(this.box.h)
       .rounded(10).overflow_hidden().bg(t.solid).border_1().border_color(t.border)
-      .on_mouse_move((e, cx) => this.dragged(e.position, cx, "body"))
-      .on_mouse_up("left", (_e, cx) => this.endDrag(cx, "up-body"))
-      // A press anywhere else means the last drag is over — the case a release outside
-      // the plate leaves behind.
-      .on_mouse_down_out((_e, cx) => this.endDrag(cx, "down-out"))
-      // Leaving ends the drag, but only after a full second: a fast drag outruns the frame
-      // for a few frames at a time, and the strip is tiny compared to the distance a hand
-      // covers in 16 ms. Ending at the first frame outside is what "脱锚" was.
-      .on_hover((hovered, cx) => {
-        if (hovered) { this.away = 0; return; }
-        this.away = (this.away ?? 0) + 1;
-        const at = this.away;
-        cx.timer.after(1000, cx => { if (this.drag && this.away === at && at > 0) this.endDrag(cx, "hover-grace"); });
-      })
       .child(h_flex().flex_none().h(14)
         .child(this.grip("nw")).child(this.grip("n", true)).child(this.grip("ne")))
       .child(h_flex().flex_1().min_h(0).items_stretch()
@@ -1130,5 +1080,21 @@ export default class Files extends View {
         .child(this.grip("e")))
       .child(h_flex().flex_none().h(14)
         .child(this.grip("sw")).child(this.grip("s", true)).child(this.grip("se")));
+    // A press has to be followed to wherever the hand goes, and this API has no capture:
+    // `on_mouse_move` and `on_mouse_up` are delivered to the element under the pointer, so a
+    // strip on the plate stops producing events the moment the hand outruns the frame. While
+    // a drag is running the content is therefore the **whole window** (which is the whole
+    // screen), with the plate centred in it — nothing can leave that, so nothing is missed,
+    // and the release lands on the same element wherever it happens. The plate is centred
+    // the way the host centres it, so the switch costs no visible jump, and `resized()`
+    // doubles the delta because a centred plate moves each edge by half of it.
+    if (!this.drag) return plate;
+    return v_flex().id("files-window").size_full().justify_center().items_center()
+      .on_mouse_move((e, cx) => this.dragged(e.position, cx, "body"))
+      .on_mouse_up("left", (_e, cx) => this.endDrag(cx, "up-body"))
+      // A press anywhere else means the last drag is over — the case a release outside the
+      // plate leaves behind when the drag ended on a hover rather than on a mouse-up.
+      .on_mouse_down_out((_e, cx) => this.endDrag(cx, "down-out"))
+      .child(plate);
   }
 }
