@@ -297,7 +297,8 @@ mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis
                               win-close/max/min/restore.svg (Windows buttons)
 mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
 mods/artemis-spaces/          main.js, mod.json {"place":"none","title":"Artemis spaces"}
-mods/artemis-files/           main.js, mod.json {"place":"none"}, file/folder/chevron svgs
+mods/artemis-files/           main.js, preview.js, mod.json {"place":"none"},
+                              file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
@@ -411,7 +412,24 @@ same pixel as the machine header's icon — measured at x = 64 in a 2× shot for
 narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
 are the shipped mod unchanged.
 
-**`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A row opens
+**`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A **preview** of the clicked row is the panel's other half: an **image** is copied into Herdr's
+own folder and drawn, **markdown** is rendered by `TextView.markdown`, and everything else stays the
+read-only `Editor` with its syntax colours. Why the copy: `image()` reads only from the application
+folder (`~/.config/herdr-app`), which is why `spaces-icons` and `omarchy-notes` copy their pictures
+there too — and `image()` is the only image API, with no bytes, no URL and no object-fit. So the
+bytes are brought in through *the same two routes as a download* — `cp` here, `scp` from another
+machine — into `data/artemis-files/preview/`, **named by the SHA-1 of their own bytes**: an edited
+picture is a new name, and the host is never asked whether it reloaded a path it had already drawn.
+Forty names are kept and the rest are unlinked; it is a preview folder, not an archive.
+
+The size is measured here because nothing else can: `preview.js` reads the header of PNG, JPEG, GIF,
+BMP, WebP and SVG (12 lines of arithmetic, no decoder) and the picture is scaled to **fit** the box
+the panel reports through `on_size_change()` — `min(box/sw, box/sh, 1)`, so a 16 px icon is not
+turned into a blurred poster — and centred. Folders, text, and every file whose bytes are not text
+keep the editor; a binary that is not an image or markdown says `No preview for this kind of file ·
+right-click to download it` rather than "Binary file".
+
+A row opens
 `mods/artemis-files-menu` as a pointer popup over it — one line of `on_mouse_down("right", …)` calling
 a `menu()` method, the shape `tabs` and `spaces` open their menus with — and the panel, not the menu,
 does the copying: a popup is gone the
@@ -476,6 +494,12 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **`image()` takes a length, and `undefined` is not one.** `.w(w || undefined)` type-checks and then
+  throws at render — `Preview could not be re-rendered; showing the last version that worked.
+  expected a number, got nil` — so the first frame (before `on_size_change` has reported a box) must
+  render the picture with no size at all rather than with a missing one. And a centred picture is in
+  the *middle* of a tall panel: crop there when checking one, not at the top, or a working preview
+  looks like a black rectangle.
 - **A popup mod's `props()` is empty in `init`.** It arrives with the first render, so anything that
   depends on the target must be read in `render` or in a click handler. An `init` that assumed
   otherwise opened a menu over nothing and left a stray 320 px block in the layout; the block lives

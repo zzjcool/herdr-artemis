@@ -2,9 +2,11 @@
 // — and a right-click that takes a file (or a whole folder) off the machine it lives
 // on and puts it on this one, in ~/Downloads. The transfer runs here rather than in
 // the menu: the menu is a popup and is gone the moment it is clicked.
-import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, Editor, EditorState } from "gpui-base";
-import { spaces, panes, focused, exec, hc, home, notify, openOverlay, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
+import { View, div, svg, image } from "gpui-kit";
+import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
+import * as fs from "fs/promises";
+import { kindOf, dimensions, cacheName, extOf, CACHE } from "./preview.js";
+import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -150,16 +152,22 @@ export default class Files extends View {
     cx.notify();
   }
 
+  // Three kinds, and the picture is the only one that does not begin with the text
+  // it is: an image is copied in and drawn, markdown is rendered, everything else
+  // stays the read-only editor it was.
   show(path, cx) {
-    this.code?.release(); this.code = null; this.file = path; this.fileError = null;
+    this.release();
+    this.file = path; this.fileError = null; this.kind = path ? kindOf(path) : null;
     if (!path || !cx) return;
     const context = this.context, root = this.root, on = this.on;
+    if (this.kind === "image") return this.showImage(path, `${root}/${path}`, on, context, cx);
     cx.spawn(async cx => {
       try {
         const text = await readTextFile(`${root}/${path}`, { on });
         if (this.file !== path || !this.current(context)) return;
         if (text === null) { this.fileError = "This file is no longer available"; return; }
-        if (text.includes("\0")) { this.fileError = "Binary file · no text preview"; return; }
+        if (this.kind === "markdown") { this.markdown = text; return; }
+        if (text.includes("\0")) { this.fileError = "No preview for this kind of file · right-click to download it"; return; }
         const t = theme(), ext = path.includes(".") ? path.split(".").pop() : "txt";
         this.code = EditorState.new({ language: LANG[ext] ?? ext, readonly: true,
           value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
@@ -310,6 +318,71 @@ export default class Files extends View {
     return this.targets?.[name] ?? name;
   }
 
+  release() {
+    this.code?.release(); this.code = null;
+    this.markdown = null; this.image = null;
+  }
+
+  // `image()` reads only from Herdr's own folder, so the bytes are brought in once and
+  // drawn from there, named by their own hash — an edited picture is a new name, and
+  // the host is never asked whether it reloaded a path it had already drawn. The two
+  // routes are the download's: `cp` here, `scp` from another machine.
+  async showImage(path, source, on, context, cx) {
+    cx.spawn(async cx => {
+      const dir = `${appHome()}/${CACHE}`, ext = extOf(path);
+      let temp = null;
+      try {
+        await fs.mkdir(dir, { recursive: true }).catch(() => null);
+        temp = `${dir}/incoming-${Date.now()}.${ext || "bin"}`;
+        const copy = on
+          ? await this.pull({ path: source, dir: false }, temp)
+          : await exec("cp", [expanded(source), temp], { timeout: SSH_TIMEOUT });
+        if (copy.code !== 0) throw new Error(lastLine(copy.stderr) || "cannot read this file");
+        const bytes = await fs.readFile(temp);
+        const name = cacheName(bytes, ext);
+        if (!(await fs.exists(`${dir}/${name}`).catch(() => false))) await fs.writeFile(`${dir}/${name}`, bytes);
+        if (this.file !== path || !this.current(context)) return;
+        const size = dimensions(bytes, ext);
+        this.image = { path: `${CACHE}/${name}`, width: size?.width ?? null, height: size?.height ?? null };
+        this.keep(name);
+      } catch (e) {
+        if (this.file === path && this.current(context)) this.fileError = `No preview of this picture · ${lastLine(e?.message ?? e)}`;
+      } finally {
+        if (temp) await fs.unlink(temp).catch(() => null);
+        if (this.file === path && this.current(context)) this.touch(cx);
+      }
+    });
+  }
+
+  // A preview folder, not an archive: the last forty pictures opened stay, the rest go.
+  keep(name) {
+    const before = shared("artemis-files.previews") ?? [];
+    const kept = [name, ...before.filter(n => n !== name)].slice(0, 40);
+    setShared("artemis-files.previews", kept);
+    for (const gone of before.filter(n => !kept.includes(n))) fs.unlink(`${appHome()}/${CACHE}/${gone}`).catch(() => null);
+  }
+
+  // The host has no object-fit and cannot report an image's size, so the picture is
+  // scaled here to fit the box the panel reports — and never enlarged past its own
+  // pixels, so a 16 px icon does not become a blurred poster.
+  picture() {
+    const box = this.box, { width: iw, height: ih } = this.image;
+    let w = box?.width ?? 0, h = box?.height ?? 0;
+    if (iw && ih && box?.width && box?.height) {
+      const scale = Math.min(box.width / iw, box.height / ih, 1);
+      w = Math.max(1, Math.round(iw * scale));
+      h = Math.max(1, Math.round(ih * scale));
+    }
+    return h_flex().size_full().min_h(0).items_center().justify_center().overflow_hidden()
+      .on_size_change((size, cx) => {
+        if (Math.abs((this.box?.width ?? 0) - size.width) < 1 && Math.abs((this.box?.height ?? 0) - size.height) < 1) return;
+        this.box = size;
+        this.touch(cx);
+      })
+      // Both numbers or neither: the elements take a length, and `undefined` is not one.
+      .child(w && h ? image(this.image.path).w(w).h(h).flex_none() : image(this.image.path).flex_none());
+  }
+
   rows(prefix, depth, out, t) {
     if (out.length >= TOTAL || depth > 40) return out;
     for (const entry of this.entries.get(prefix) ?? []) {
@@ -338,7 +411,12 @@ export default class Files extends View {
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.dim).child("File list limited to 500 entries per folder and 5,000 total")))))
-      .when(Boolean(this.file), el => el.child(this.code ? Editor.new(this.code).flex_1().min_h(0) : div().p(12).text_color(t.dim).child(this.fileError || "Loading file…")))
+      .when(Boolean(this.image), el => el.child(this.picture()))
+      .when(Boolean(this.markdown), el => el.child(div().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
+        .child(TextView.markdown(`files-md-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
+      .when(Boolean(this.code), el => el.child(Editor.new(this.code).flex_1().min_h(0)))
+      .when(Boolean(this.file) && !this.code && !this.markdown && !this.image,
+        el => el.child(div().p(12).text_size(12).text_color(t.dim).child(this.fileError || "Loading file…")))
       .when(Boolean(this.status), el => el.child(h_flex().flex_none().px(12).py(7).items_center().border_t(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(this.status.tone === "error" ? t.blocked : this.status.tone === "done" ? t.ansi2 : t.dim).child(this.status.text))));
   }

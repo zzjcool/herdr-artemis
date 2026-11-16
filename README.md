@@ -44,8 +44,12 @@ and the corona read straight through the text.
 - **the same reading in the rail**: under each machine's name in the space list, one left-aligned
   line — the same two glyphs, `42%` and `78%`, then `↓379K ↑67K`, each metric with its own
   sparkline — so the health of every host is one glance away, without switching to a space on it;
-- **a Files panel that can hand you the file**: right-click a row for `Download file` /
-  `Download folder` or `Copy path`. A download lands in `~/Downloads` and never overwrites
+- **a Files panel that shows you the file**: clicking a row previews it — a picture is drawn
+  (PNG, JPEG, GIF, WebP, BMP, SVG, scaled to fit and never enlarged), markdown is *rendered*, and
+  everything else opens as read-only source with its syntax colours. Pictures from another machine
+  come across the same ssh the download uses and are kept in Herdr's own folder, where `image()`
+  can read them, named by their content so an edited file is a new name. Right-click a row for
+  `Download file` / `Download folder` or `Copy path`. A download lands in `~/Downloads` and never overwrites
   (`report.pdf`, then `report (2).pdf`); from another machine it is one `scp` over the ssh you
   already have to that host, not the connection Herdr keeps — that one carries text and stops at
   8 MiB, which would corrupt anything binary. It says what happened in the same toast the rest of
