@@ -6,7 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
-import { spaces, panes, focused, appHome, closeOverlay, exec, hc, home, notify, openOverlay, props, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
+import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, props, readTextFile, run, setShared, shared, watchFolder, theme, settings } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -259,54 +259,32 @@ export default class Files extends View {
     // Markdown has two right answers — the rendered page and the text it was written
     // as — so the choice is remembered rather than re-made on every file.
     this.mdMode = shared("artemis-files.mdMode") === "source" ? "source" : "rendered";
-    // A window is a second copy of this mod, with no folder of its own: it picks up the
-    // request `popout()` leaves behind. Long enough after `init` for `props()` to be
-    // filled — it is empty here, which cost a session once.
-    this.wide = false; this.overlay = null;
+    // A preview tab is this mod as its own pane, handed the file through `props()` — which
+    // is empty in `init` and filled a moment later.
+    this.wide = false;
     cx.timer.after(120, cx => this.adopt(cx));
   }
 
-  // The panel's copy lives in a layout; a window's copy has `props().overlay` and nothing
-  // else, so it draws one document and no tree.
+  // The panel's copy lives in a layout; a preview tab is the same mod as a pane of its own,
+  // which the host hands a file through `props()`.
   adopt(cx) {
     const spec = props();
-    if (!spec?.overlay) return;
-    this.wide = true; this.overlay = spec.overlay;
-    // The window does not take the keyboard by itself (the host says so), and Esc is a key:
-    // the view asks for it, or the close key would only work after a click.
-    this.handle = cx.focus_handle();
-    this.handle.focus();
-    const request = shared("artemis-files.window");
-    if (request?.file && Date.now() - (request.at ?? 0) < PICKUP) {
-      this.windowAt = request.at ?? 0;
-      this.root = request.root ?? null; this.on = request.on ?? null;
-      this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
-      this.show(request.file, cx);
-    }
-    // Whether the host replaced the window or handed the same one this request, the
-    // second file opened from the sidebar has to arrive: the request is newer than the
-    // one this copy took, so it is picked up here.
-    cx.timer.every(600, cx => this.pickup(cx));
+    if (!spec?.wide || !spec.file) return;
+    this.wide = true;
+    this.root = spec.root ?? null; this.on = spec.on ?? null;
+    this.context = { key: "tab", cwd: this.root, on: this.on };
+    this.show(spec.file, cx);
     cx.notify();
   }
 
-  pickup(cx) {
-    const request = shared("artemis-files.window");
-    if (!request?.file || (request.at ?? 0) <= (this.windowAt ?? 0)) return;
-    this.windowAt = request.at ?? 0;
-    this.root = request.root ?? null; this.on = request.on ?? null;
-    this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
-    this.trail = []; this.status = null;
-    this.show(request.file, cx);
-  }
-
   // The sidebar is a third of a thousand pixels: a table and a code block both want more.
-  // The window remembers where it was dropped (`key`), so opening it again replaces the
-  // one already open instead of stacking a second.
+  // A tab, not a floating window. The host's own tab has a native frame, native resizing
+  // (the split handles, `layout.resize`) and a native way to close; a window overlay in this
+  // API is sized by its content and has no edge resize at all, which is what four
+  // hand-rolled versions were fighting and losing.
   popout(cx) {
     if (!this.file) return;
-    setShared("artemis-files.window", { file: this.file, root: this.root, on: this.on, at: Date.now() });
-    openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview", width: 0.62, height: 0.82 });
+    run("tab.new", { mod: "artemis-files", props: { wide: true, file: this.file, root: this.root, on: this.on } });
   }
 
   watch(root, cx) {
@@ -883,16 +861,10 @@ export default class Files extends View {
     const t = theme();
     // A window has room, so the page is set a little larger there.
     const prose = this.wide ? 14 : 12.5;
-    return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
-      // `background` in this theme is 20 % smoke over the photograph — right for a pane in the
-      // layout, wrong for a window floating over terminals, where it lets their text through.
-      // `solid` is the token that means an opaque surface.
-      .when(this.wide, el => el.bg(t.solid))
-      .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
-      // Esc closes the window. It only arrives on the focus path, so the view asks for the
-      // keyboard when it opens as a window and tracks that handle here.
-      .when(this.wide && Boolean(this.handle), el => el.track_focus(this.handle)
-        .on_key_down((e, cx) => { if (e.key === "escape") { closeOverlay(this.overlay); cx.stop_propagation(); } }))
+    // In the layout the panel draws its own rounded plate; as a tab the host draws the pane,
+    // so a second frame inside it would only double the border.
+    return v_flex().id("files").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(13)
+      .when(!this.wide, el => el.rounded(10).border_1().border_color(t.border))
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .when(Boolean(this.file) && !this.wide, el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted)
           .on_click((_e, cx) => { this.show(this.trail.pop() ?? null, cx); cx.notify(); }).child("←")))
@@ -904,7 +876,7 @@ export default class Files extends View {
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? ""))
         // The way out sits in the corner it sits in everywhere else.
         .when(Boolean(this.file) && !this.wide, el => el.child(this.icon("expand", cx => this.popout(cx), t, cx)))
-        .when(this.wide, el => el.child(this.icon("close", () => closeOverlay(this.overlay), t, cx))))
+)
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.dim).child("File list limited to 500 entries per folder and 5,000 total")))))
