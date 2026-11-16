@@ -445,8 +445,18 @@ retained editor built in one pass. Measured, that costs only colours: `TextView.
 draws a fence as a bordered sheet with the language in the corner, down to the padding — the hybrid
 exists for the token colouring it will not do, and for nothing else.
 
-Two more things the host cannot do inside a document, and the cut solves both. A **picture** written
-`![](shot.png)` becomes a block — alone on its line, and also inside a sentence, where the line is cut
+Two more things the host cannot do inside a document, and the cut solves both. A **picture** becomes
+a block in every spelling a document writes it: `![](shot.png)`, the HTML `<img src="…">`, the
+reference forms `![alt][label]`, `![label][]` and `![label]` — those three only when the label is
+defined, since an undefined one is text and must stay text — and each with an optional Pandoc
+`{width=200 height=100}` tail. The reference table is `[label]: url "title"` lines read from the
+document without being removed, so a link that uses the same label keeps working at the same time.
+One guard sits in front of all of it: a picture tag inside an inline code span is an *example*, not a
+picture, and this very file is full of them. An explicit size wins over the panel's own measure and
+may enlarge a small picture — the one case where that is what the author asked for — but never past
+the panel or the 480 px cap.
+
+A picture becomes a block — alone on its line, and also inside a sentence, where the line is cut
 around it: the words before it are closed into a paragraph, the words after it are pushed back into
 the prose that follows (so two sides of one sentence do not become two paragraphs), and the picture
 takes a line of its own. That last part is the price and it is worth naming: a picture mid-sentence
@@ -558,6 +568,10 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **A document may be showing the syntax you are parsing.** The first version of the picture reader
+  turned every `<img src="x.png">` in RECIPE into a broken picture, because RECIPE documents exactly
+  that tag. Inline code spans are found first (`codeSpans`) and matches inside them are left alone.
+  Any reader that acts on a syntax has to recognise the syntax *about* the syntax.
 - **The host already draws the thing you are rebuilding.** `TextView.markdown` renders a fence as a
   bordered sheet with the language in the top corner — the same shape this mod builds by hand. The
   only thing it will not do is colour the tokens. That is a legitimate reason, but it is *one*, and

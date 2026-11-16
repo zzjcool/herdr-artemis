@@ -58,6 +58,14 @@ export function blocks(text) {
   // A CRLF file otherwise fails every fence test — a host that hands over `\r\n`
   // would turn the whole document into one code block, or none at all.
   const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+  // Reference definitions, `[label]: text/url "title"`, for the `![alt][label]` spelling.
+  // They are read but not removed: the host still gets the line, and a link that uses the
+  // same label keeps working.
+  const refs = {};
+  for (const line of lines) {
+    const def = /^\s{0,3}\[([^\]]+)\]:\s*<?([^\s>]+)>?(?:\s+["'(].*)?$/.exec(line);
+    if (def) refs[def[1].trim().toLowerCase()] = def[2];
+  }
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (code) {
@@ -102,35 +110,26 @@ export function blocks(text) {
         continue;
       }
     }
-    // A picture alone on a line: the host would draw it broken, because `TextView`
-    // resolves `![](...)` against Herdr's folder rather than against the document.
-    // Anchored at both ends on purpose — a looser test ate the second picture on a
-    // line that held two, and the words with it.
-    const image = /^\s*!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+["'][^"']*["'])?\s*\)\s*$/.exec(line);
-    if (image) {
+    // Every spelling of a picture, in one pass: whole line, inside a sentence, the HTML
+    // `<img>`, the reference forms, and a Pandoc `{width=…}` tail. All of them are drawn
+    // broken by the host — it resolves the path against its own folder — so all of them
+    // leave this reader as blocks.
+    const pictures = picturesIn(line, refs);
+    if (pictures.length) {
+      const first = pictures[0], last = pictures[pictures.length - 1];
+      const alone = pictures.length === 1 && !line.slice(0, first.index).trim() && !line.slice(last.index + last.length).trim();
       flush();
-      out.push({ kind: "image", alt: image[1], src: image[2] });
-      continue;
-    }
-    // A picture *inside* a sentence. The host will draw that one broken (it resolves the
-    // path against its own folder), so the line is cut around it: the words go back to
-    // the host, the picture becomes a block of its own. The cost is honest — a picture
-    // in the middle of a sentence takes a line of its own — and the alternative is a
-    // broken image with alt text, which is what this replaces.
-    const inline = [...line.matchAll(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+["'][^"']*["'])?\s*\)/g)];
-    if (inline.length) {
-      flush();
-      if (line.slice(0, inline[0].index).trim()) prose.push(line.slice(0, inline[0].index));
-      for (let k = 0; k < inline.length; k++) {
-        const picture = inline[k];
-        const rest = line.slice(picture.index + picture[0].length, k + 1 < inline.length ? inline[k + 1].index : undefined);
-        // Close the words before the picture, or it lands after the paragraph instead
-        // of inside it; then push the words after it back into the prose that follows,
-        // so two sides of one sentence do not become two paragraphs.
+      let at = 0;
+      for (const picture of pictures) {
+        // The words before a picture are closed into a paragraph first, or the picture
+        // lands after them; the words after the last one go back into the prose that
+        // follows, so two sides of one sentence do not become two paragraphs.
+        if (line.slice(at, picture.index).trim()) prose.push(line.slice(at, picture.index));
         flush();
-        out.push({ kind: "image", alt: picture[1], src: picture[2], inline: true });
-        if (rest.trim()) prose.push(rest);
+        out.push({ kind: "image", alt: picture.alt, src: picture.src, width: picture.width, height: picture.height, inline: !alone });
+        at = picture.index + picture.length;
       }
+      if (line.slice(at).trim()) prose.push(line.slice(at));
       continue;
     }
     prose.push(line);
@@ -138,6 +137,52 @@ export function blocks(text) {
   if (code) out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") });
   else flush();
   return out;
+}
+
+// Every spelling of a picture: `![](a.png)` with an optional Pandoc `{width=…}` tail, the
+// HTML `<img>`, and the reference forms `![alt][label]`, `![label][]` and `![label]` — the
+// last three only when the label is actually defined somewhere, because an undefined one
+// is just text and must stay text.
+const PICTURE = /<img\b[^>]*>|!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+["'][^"']*["'])?\s*\)\s*(?:\{([^}]*)\})?|!\[([^\]]*)\]\[([^\]]*)\]\s*(?:\{([^}]*)\})?|!\[([^\]]*)\](?![([])\s*(?:\{([^}]*)\})?/gi;
+
+// Inline code spans, so a document may *show* a picture tag without drawing one. RECIPE
+// and every other note about markdown is full of exactly that.
+function codeSpans(line) {
+  const spans = [], runs = [...line.matchAll(/`+/g)];
+  for (let i = 0; i < runs.length; i++) {
+    const open = runs[i];
+    const close = runs.slice(i + 1).find(run => run[0].length === open[0].length);
+    if (!close) continue;
+    spans.push([open.index, close.index + close[0].length]);
+    i = runs.indexOf(close);
+  }
+  return spans;
+}
+
+function picturesIn(line, refs) {
+  const found = [], spans = codeSpans(line);
+  const size = (attrs, name) => {
+    const m = new RegExp(`\\b${name}\\s*=\\s*"?([0-9]+)`, "i").exec(attrs);
+    return m ? Number(m[1]) : null;
+  };
+  for (const match of line.matchAll(PICTURE)) {
+    if (spans.some(([open, close]) => match.index > open && match.index < close)) continue;
+    const raw = match[0];
+    let alt = "", src = "", attrs = "";
+    if (/^<img/i.test(raw)) {
+      const pick = (name) => {
+        const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(raw);
+        return m ? (m[1] ?? m[2] ?? m[3] ?? "") : "";
+      };
+      src = pick("src"); alt = pick("alt");
+      attrs = `width=${pick("width")} height=${pick("height")}`;
+    } else if (match[2] !== undefined) { alt = match[1]; src = match[2]; attrs = match[3] ?? ""; }
+    else if (match[5] !== undefined) { alt = match[4]; src = refs[(match[5] || match[4]).trim().toLowerCase()] ?? ""; attrs = match[6] ?? ""; }
+    else { alt = match[7] ?? ""; src = refs[alt.trim().toLowerCase()] ?? ""; attrs = match[8] ?? ""; }
+    if (!src) continue;
+    found.push({ index: match.index, length: raw.length, alt, src, width: size(attrs, "width"), height: size(attrs, "height") });
+  }
+  return found;
 }
 
 // The first word of a fence's info string, however it is dressed: `js`, `{.js}`,
@@ -353,12 +398,22 @@ export default class Files extends View {
     if (block.status === "failed") return note(`${block.alt || block.path} · cannot read this picture`);
     if (!block.picture) return note(`${block.alt || block.path} · loading…`);
     const { width: iw, height: ih } = block.picture;
+    // A size written in the document (`{width=200}`, `<img width=200>`) wins over the
+    // panel's own measure — it may enlarge a small picture, which is the one case where
+    // that is what the author asked for — but never past the panel or the 480 px cap.
+    const wantW = block.width ?? null, wantH = block.height ?? null;
     let w = width, h = null;
     if (iw && ih) {
-      const scale = Math.min(width / iw, 480 / ih, 1);
+      let scale = Math.min(width / iw, 480 / ih, wantW || wantH ? Infinity : 1);
+      if (wantW || wantH) {
+        const tw = wantW ?? Math.round((wantH * iw) / ih);
+        const th = wantH ?? Math.round((wantW * ih) / iw);
+        scale = Math.min(tw / iw, th / ih, width / iw, 480 / ih);
+      }
       w = Math.max(1, Math.round(iw * scale));
       h = Math.max(1, Math.round(ih * scale));
-    }
+    } else if (wantW && wantH) { w = Math.min(wantW, width); h = Math.min(wantH, 480); }
+    else if (wantW) w = Math.min(wantW, width);
     // A size the header did not give is not a licence to take the whole page: the
     // picture is still capped, it just gets clipped rather than scaled.
     if (!h) return div().flex_none().mb(10).max_h(480).overflow_hidden().child(image(block.picture.path).w(w));
