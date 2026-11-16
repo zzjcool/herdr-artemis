@@ -6,7 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
-import { spaces, panes, focused, appHome, closeOverlay, exec, hc, home, notify, openOverlay, props, readTextFile, setShared, shared, watchFolder, theme, settings, window as host } from "herdr";
+import { spaces, panes, focused, appHome, closeOverlay, exec, hc, home, notify, openOverlay, props, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -21,8 +21,6 @@ const DOWNLOADS = "Downloads", PICKUP = 15000, SHOWN = 9000, SSH_TIMEOUT = 59000
 // herdr-core's channel carries text and stops at 8 MiB; base64 grows a file by a third,
 // so a little over 5 MB of picture is what fits through it.
 const CORE_MAX = 5 * 1024 * 1024;
-// A window narrower than this is the sidebar again, which is what the window is for.
-const MIN_W = 420, MIN_H = 320;
 
 // `on` names a machine the way herdr-core does, and ssh needs that machine's `target`,
 // which is a different string (`nj-host` is reached as `nj-host-ts`). A target is an
@@ -234,7 +232,7 @@ async function directory(path, on) {
     const result = JSON.parse(r.stdout || "[]");
     return Array.isArray(result) ? result : [result];
   };
-  if (!on && host()?.platform === "windows") return windowsDirectory();
+  if (!on && window()?.platform === "windows") return windowsDirectory();
   const script = 'n=0; for p in "$1"/* "$1"/.[!.]* "$1"/..?*; do [ -e "$p" ] || [ -L "$p" ] || continue; name=${p##*/}; [ "$name" = .git ] && continue; if [ -d "$p" ]; then kind=d; else kind=f; fi; printf "%s\\0%s\\0" "$kind" "$name"; n=$((n+1)); [ "$n" -gt 500 ] && break; done; test -d "$1"';
   let r;
   try { r = await exec("sh", ["-c", script, "files", path], { on }); }
@@ -265,23 +263,6 @@ export default class Files extends View {
     // request `popout()` leaves behind. Long enough after `init` for `props()` to be
     // filled — it is empty here, which cost a session once.
     this.wide = false; this.overlay = null;
-    // A window overlay is as big as its content, and the size it takes at birth is the one it
-    // keeps. So the copy that is a window has to know that *before its first frame* — not
-    // from `props()`, which is empty in `init`, but from the request the button left behind.
-    // The request carries `taken` once a window has read it, so a panel that is rebuilt later
-    // does not mistake an old request for a new window.
-    const request = shared("artemis-files.window");
-    if (request?.file && !request.taken && Date.now() - (request.at ?? 0) < PICKUP) {
-      this.wide = true; this.windowAt = request.at ?? 0;
-      this.root = request.root ?? null; this.on = request.on ?? null;
-      this.box = this.size();
-      this.context = { key: "window", cwd: this.root, on: this.on };
-      this.show(request.file, cx);
-    }
-    // The host hands a window overlay to its content: "as big as its content unless
-    // width/height". So the size lives here, in pixels, and the edges are grabbable —
-    // the host draws no resize handle of its own.
-    this.box = null;
     cx.timer.after(120, cx => this.adopt(cx));
   }
 
@@ -290,22 +271,18 @@ export default class Files extends View {
   adopt(cx) {
     const spec = props();
     if (!spec?.overlay) return;
-    this.wide = true; this.overlay = spec.overlay; this.box = this.size();
+    this.wide = true; this.overlay = spec.overlay;
     // The window does not take the keyboard by itself (the host says so), and Esc is a key:
     // the view asks for it, or the close key would only work after a click.
     this.handle = cx.focus_handle();
     this.handle.focus();
     const request = shared("artemis-files.window");
-    if (request?.file) {
-      setShared("artemis-files.window", { ...request, taken: true });
-      if (this.file !== request.file) {
-        this.windowAt = request.at ?? 0;
-        this.root = request.root ?? null; this.on = request.on ?? null;
-        this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
-        this.show(request.file, cx);
-      }
+    if (request?.file && Date.now() - (request.at ?? 0) < PICKUP) {
+      this.windowAt = request.at ?? 0;
+      this.root = request.root ?? null; this.on = request.on ?? null;
+      this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
+      this.show(request.file, cx);
     }
-    if (!this.box) this.box = this.size();
     // Whether the host replaced the window or handed the same one this request, the
     // second file opened from the sidebar has to arrive: the request is newer than the
     // one this copy took, so it is picked up here.
@@ -328,116 +305,9 @@ export default class Files extends View {
   // one already open instead of stacking a second.
   popout(cx) {
     if (!this.file) return;
-    setShared("artemis-files.window", { file: this.file, root: this.root, on: this.on, at: Date.now(), taken: false });
-    // No width/height: the overlay takes the size of what it shows, and what it shows is
-    // this mod — which is how the edges can be dragged at all.
-    openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview", frame: "none" });
+    setShared("artemis-files.window", { file: this.file, root: this.root, on: this.on, at: Date.now() });
+    openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview", width: 0.62, height: 0.82 });
   }
-
-  // The window's size, in pixels: what it was last dragged to, else most of the screen.
-  size() {
-    const view = window.viewport_size();
-    const saved = shared("artemis-files.windowBox");
-    return {
-      w: Math.max(MIN_W, Math.min(view.width - 24, Math.round(saved?.w ?? view.width * 0.62))),
-      h: Math.max(MIN_H, Math.min(view.height - 24, Math.round(saved?.h ?? view.height * 0.82))),
-    };
-  }
-
-  // A 6 px strip on the right edge, 6 px on the bottom, and a 10 px square on the corner
-  // where they meet, so a drag can go diagonally. Presses are stopped so the window
-  // itself does not move instead — the host drags a window by any press the mod does not
-  // claim. The left and top edges have no strip: an open overlay is anchored at its
-  // top-left corner (measured: content 560×700, 760×700 and 900×700 all began at the same
-  // x, and 560×700 and 560×1100 at the same y), so growing the content can only extend
-  // right and down. Growing the content by `d` therefore moves the dragged edge by `d` —
-  // the first version doubled it, believing the window recentred, and the edge ran away
-  // from the pointer at twice its speed.
-  // How far the plate's edge moves per unit of `box` is the host's business, not ours, and
-  // it is not constant: a plate centred in the overlay window moves an edge by half the box
-  // change, one placed at the content's origin moves it one for one. Guessing which world we
-  // are in cost four wrong versions, so the drag measures it instead — `observed()` learns
-  // the ratio from the rect the pointer event reports for the element it was delivered to,
-  // and everything else follows from that. The default of 1 is only what the first event of
-  // the first drag uses; after two events the frame is glued to the pointer either way.
-
-  resized(edge, w0, h0, dx, dy) {
-    const view = window.viewport_size();
-    let w = w0, h = h0;
-    if (edge.includes("e")) w += dx;
-    if (edge.includes("w")) w -= dx;
-    if (edge.includes("s")) h += dy;
-    if (edge.includes("n")) h -= dy;
-    return {
-      w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
-      h: Math.round(Math.max(MIN_H, Math.min(view.height - 24, h))),
-    };
-  }
-
-
-  // A drag is followed from the strip that took the press **and** from the window body,
-  // next to it. Only the strip is 6 px wide, and the pointer stops being over it the
-  // moment the frame lags behind the pointer for one frame: the cursor went back to an
-  // arrow mid-drag and no further move ever arrived, which left the window stuck at
-  // whatever size the last delivered event had asked for. Both handlers run this one
-  // method, so an event that arrives twice moves the edge once.
-  dragged(position, cx, _src, _bounds) {
-    const d = this.drag;
-    if (!d) return;
-    // 1:1, measured: window coordinates and screen pixels are the same thing here, because a
-    // content-sized window keeps its top-left while it grows (three widths, one left edge).
-    let box;
-    try {
-      box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y);
-    } catch { box = this.box; }
-    if (box.w === this.box.w && box.h === this.box.h) return;
-    d.moved = true;
-    this.box = box;
-    this.touch(cx);
-  }
-
-
-
-  endDrag(cx) {
-    if (!this.drag) return;
-    if (this.drag.moved) {
-      setShared("artemis-files.windowBox", this.box);
-    }
-    this.drag = null;
-    // The one re-wrap of the whole drag, at the size the drag ended on.
-    this.freeze = null;
-    this.touch(cx);
-  }
-
-  grip(edge, grow = false) {
-    const down = (e, cx) => {
-      // Claimed before anything else can fail: the host drags the window by any press the
-      // mod does not stop, and a throw in here (a log write, a bad field) would hand the
-      // press back to it — measured, that turned a resize into the window following the
-      // pointer with its size untouched.
-      cx.stop_propagation();
-      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false };
-      // Re-wrapping the page at every intermediate width is the one thing a drag cannot
-      // afford: measured 56 ms per frame on a 73 KB document, against 18 ms for the same
-      // frame with the page held still. So the page keeps the size it had when the edge
-      // was taken — drawn clipped to the new frame — and takes the new width once, on
-      // release. The pointer still moves the edge frame by frame; the text follows at the
-      // end, which is the difference between a smooth drag and a slideshow.
-      this.freeze = this.innerSize ?? { w: Math.max(1, this.box.w - 12), h: Math.max(1, this.box.h - 28) };
-    };
-    const horizontal = edge === "e" || edge === "w";
-    const corner = edge.length === 2;
-    // 10 px, not 6: the strip has to stay under the pointer for the whole drag.
-    return div().id(`files-grip-${edge}`)
-      .when(grow, el => el.flex_1()).when(!grow, el => el.flex_none())
-      .when(corner, el => el.w(22).h_full().cursor_nwse_resize().when(edge === "ne" || edge === "sw", g => g.cursor_nesw_resize()))
-      .when(horizontal, el => el.w(20).h_full().cursor_ew_resize())
-      .when(!horizontal && !corner, el => el.h(20).w_full().cursor_ns_resize())
-      .on_mouse_down("left", down)
-      .on_mouse_move((e, cx) => this.dragged(e.position, cx))
-      .on_mouse_up("left", (_e, cx) => this.endDrag(cx));
-  }
-
 
   watch(root, cx) {
     if (this.on || this.watched === root) return;
@@ -970,10 +840,6 @@ export default class Files extends View {
   // scaled here to fit the box the panel reports — and never enlarged past its own
   // pixels, so a 16 px icon does not become a blurred poster.
   picture() {
-    // `ibox`, never `box`: the window's own size lives in `this.box` ({w,h}) and this one is
-    // the area the picture is drawn in ({width,height}) — the same field for both meant that
-    // opening an image rewrote the window's size, and every drag after that fought a plate
-    // that had silently become an image's viewport.
     const box = this.ibox, { width: iw, height: ih } = this.image;
     let w = box?.width ?? 0, h = box?.height ?? 0;
     if (iw && ih && box?.width && box?.height) {
@@ -1014,14 +880,15 @@ export default class Files extends View {
 
   render(cx) {
     if (!this.wide && key() !== this.context?.key) this.refresh(cx);
-    if (this.wide && !this.box) this.box = this.size();
     const t = theme();
     // A window has room, so the page is set a little larger there.
     const prose = this.wide ? 14 : 12.5;
-    // In a window the box and its frame belong to the wrapper, so the 6 px grips sit
-    // inside the rounded rect rather than beside it.
-    const inner = v_flex().id("files").min_h(0).overflow_hidden().text_color(t.foreground).text_size(13)
-      .when(!this.wide, el => el.size_full().rounded(10).border_1().border_color(t.border).bg(t.background))
+    return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
+      // `background` in this theme is 20 % smoke over the photograph — right for a pane in the
+      // layout, wrong for a window floating over terminals, where it lets their text through.
+      // `solid` is the token that means an opaque surface.
+      .when(this.wide, el => el.bg(t.solid))
+      .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       // Esc closes the window. It only arrives on the focus path, so the view asks for the
       // keyboard when it opens as a window and tracks that handle here.
       .when(this.wide && Boolean(this.handle), el => el.track_focus(this.handle)
@@ -1067,50 +934,5 @@ export default class Files extends View {
         el => el.child(div().p(12).text_size(12).text_color(t.dim).child(this.fileError || "Loading file…")))
       .when(Boolean(this.status), el => el.child(h_flex().flex_none().px(12).py(7).items_center().border_t(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(this.status.tone === "error" ? t.blocked : this.status.tone === "done" ? t.ansi2 : t.dim).child(this.status.text))));
-    if (!this.wide) return inner;
-    // A drag whose release lands outside the window never reaches `on_mouse_up`, so the
-    // freeze is honoured only while the press is still held: `drag` is what heals it.
-    const frozen = this.freeze && this.drag ? this.freeze : null;
-    // The plate is a box inside the overlay window, not the window itself: measured, the
-    // overlay is the whole screen (`window.bounds()` 1214×2530 at 0,30) and this content is
-    // placed at a fixed point in it (520 px wide, then 760, then 900 — same left edge), so
-    // it can only grow right and down. Hence right, bottom and the corner, and no strips on
-    // the other two sides.
-    // `background` in this theme is 20 % smoke over the photograph — right for a pane in the
-    // layout, wrong for a window floating over terminals, where it lets their text through.
-    // `solid` is the token that means an opaque surface.
-    const plate = v_flex().id("files-plate").w(this.box.w).h(this.box.h)
-      .rounded(10).overflow_hidden().bg(t.solid).border_1().border_color(t.border)
-      .child(h_flex().flex_none().h(14)
-        .child(this.grip("nw")).child(this.grip("n", true)).child(this.grip("ne")))
-      .child(h_flex().flex_1().min_h(0).items_stretch()
-        .child(this.grip("w"))
-        // The frozen page is a fixed-size sheet *inside* a flexible clip, not a fixed-size
-        // child: as a child of the row it left the strip at the old edge while the frame
-        // grew past it, and the pointer followed the frame out of the strip.
-        .child(frozen
-          ? div().flex_1().min_w(0).overflow_hidden()
-            .child(div().w(frozen.w).h(frozen.h).child(inner.size_full()))
-          : inner.flex_1().min_w(0).h_full()
-            .on_size_change((size, _cx) => { this.innerSize = { w: size.width, h: size.height }; }))
-        .child(this.grip("e")))
-      .child(h_flex().flex_none().h(14)
-        .child(this.grip("sw")).child(this.grip("s", true)).child(this.grip("se")));
-    // A press has to be followed to wherever the hand goes, and this API has no capture:
-    // `on_mouse_move` and `on_mouse_up` are delivered to the element under the pointer, so a
-    // strip on the plate stops producing events the moment the hand outruns the frame. While
-    // a drag is running the content is therefore the **whole window** (which is the whole
-    // screen), with the plate centred in it — nothing can leave that, so nothing is missed,
-    // and the release lands on the same element wherever it happens. The plate is centred
-    // the way the host centres it, so the switch costs no visible jump, and `resized()`
-    // doubles the delta because a centred plate moves each edge by half of it.
-    if (!this.drag) return plate;
-    return v_flex().id("files-window").size_full().justify_center().items_center()
-      .on_mouse_move((e, cx) => this.dragged(e.position, cx, "body"))
-      .on_mouse_up("left", (_e, cx) => this.endDrag(cx, "up-body"))
-      // A press anywhere else means the last drag is over — the case a release outside the
-      // plate leaves behind when the drag ended on a hover rather than on a mouse-up.
-      .on_mouse_down_out((_e, cx) => this.endDrag(cx, "down-out"))
-      .child(plate);
   }
 }
