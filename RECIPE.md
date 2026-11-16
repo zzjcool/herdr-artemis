@@ -418,7 +418,18 @@ read-only `Editor` with its syntax colours. A markdown file gets both answers: t
 header — **Rendered** and **Source** — and the choice is remembered in
 `shared("artemis-files.mdMode")`, because someone reading a README usually wants the same thing
 next time. Source is the same read-only editor a `.js` gets, built on the way into the mode rather
-than in `render`, since `EditorState.new` needs a live host call. Why the copy: `image()` reads only from the application
+than in `render`, since `EditorState.new` needs a live host call.
+
+**Rendered** is not one `TextView`: the document is cut at its code fences, because the host's
+renderer cannot colour a fence and a mod should not re-invent headings, lists, tables, quotes and
+links. Prose chunks go through `TextView.markdown` unchanged — that is what draws the table in the
+probe document and the bullets under it — and every fence becomes a bordered sheet with its language
+in the corner and a real `Editor` inside, so the colours are exactly the ones the same file gets
+when opened as a `.py`. One consequence, measured: `TextView` ignores inline CSS
+(`<span style="color:…">` renders plain, "CSS in HTML is not supported"), and an `Editor` will not
+size itself — with no height it draws two lines and stops — so each fence's height is computed from
+its line count, wrapped lines counted at 0.6 em per character in the mono face, plus a third of a
+line of slack. Why the copy: `image()` reads only from the application
 folder (`~/.config/herdr-app`), which is why `spaces-icons` and `omarchy-notes` copy their pictures
 there too — and `image()` is the only image API, with no bytes, no URL and no object-fit. The bytes come in by **the cheapest route that can carry them** — and the order matters:
 `fs.readFile` for a local file, **the connection herdr-core already holds** for another machine's
@@ -506,6 +517,11 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **`Editor` does not measure itself, and `TextView` does not take colours.** Both were measured in a
+  throwaway overlay mod: an `Editor` with no `h()` paints two lines and stops (so a code sheet inside
+  a document must compute its height from its own line count), and `<span style="color:#e08a6c">`
+  inside `TextView.html` comes out in the plain foreground while `<code>`/`<b>`/`<i>` are styled —
+  which is why a coloured code block has to be an `Editor` and cannot be a styled fragment.
 - **Hiding a preview is not the same as letting it go.** Switching a markdown file from `Source` back
   to `Rendered` left the editor state alive, so both branches of the render were appended and the
   panel drew the source over the page — two previews, one on top of the other (measured: line numbers

@@ -28,6 +28,30 @@ const CORE_MAX = 5 * 1024 * 1024;
 // last form (measured: "Connection closed"), so it is split here.
 const lastLine = (text) => String(text ?? "").trim().split("\n").filter(Boolean).pop() ?? "";
 
+// A markdown document is cut at its code fences: prose keeps the host's renderer
+// (headings, lists, tables, quotes, links — none of which a mod should re-invent),
+// and each fence becomes a real `Editor`, which is the only thing in the shell that
+// knows how to colour code. `TextView` cannot: inline CSS is not supported, so a
+// fence drawn by it is monochrome no matter what.
+export function blocks(text) {
+  const out = [], prose = [];
+  let code = null;
+  const flush = () => { if (prose.length) { out.push({ kind: "md", text: prose.join("\n") }); prose.length = 0; } };
+  for (const line of String(text).split("\n")) {
+    const fence = /^\s*```[ \t]*([\w#+.-]*)[ \t]*$/.exec(line);
+    if (code) {
+      if (fence) { out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") }); code = null; }
+      else code.lines.push(line);
+    } else if (fence) {
+      flush();
+      code = { lang: fence[1].toLowerCase(), lines: [] };
+    } else prose.push(line);
+  }
+  if (code) out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") });
+  else flush();
+  return out;
+}
+
 // A folder path as a command that takes paths (not a shell) needs it: `cp` has no idea
 // what `~` means.
 const expanded = (path) => (path === "~" ? home() : path.startsWith("~/") ? `${home()}/${path.slice(2)}` : path);
@@ -175,6 +199,7 @@ export default class Files extends View {
         if (this.kind === "markdown") {
           this.markdown = text;
           if (this.mdMode === "source") this.code = this.editor(text, "markdown");
+          else this.blocks = this.build(text);
           return;
         }
         if (text.includes("\0")) { this.fileError = "No preview for this kind of file · right-click to download it"; return; }
@@ -186,12 +211,34 @@ export default class Files extends View {
 
   // The read-only editor both a text file and a markdown file's source share. Built in
   // a handler or a load, never in `render`: `EditorState.new` needs a live host call.
-  editor(text, language) {
+  editor(text, language, options = {}) {
     const t = theme();
-    return EditorState.new({ language, readonly: true,
+    return EditorState.new({
+      language, readonly: true,
       value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
-      font_family: settings().font_family, font_size: 12,
-      syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 } });
+      font_family: settings().font_family,
+      font_size: options.font_size ?? 12,
+      line_numbers: options.line_numbers ?? true,
+      folding: false,
+      soft_wrap: options.soft_wrap ?? false,
+      syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6, variable: t.foreground, operator: t.muted, punctuation: t.muted, boolean: t.ansi3 } });
+  }
+
+  // One fence, drawn as its own block: a bordered sheet with the language in its
+  // corner and a real editor inside, so the colours are the ones a `.py` file gets.
+  codeBlock(block, index) {
+    const t = theme(), size = 11.5;
+    const width = Math.max(160, (this.mdBox ?? 300) - 24);
+    const perLine = Math.max(24, Math.floor((width - 16) / (size * 0.6)));
+    const visual = block.text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(line.length / perLine)), 0);
+    // The editor will not size itself (measured: no height draws two lines), so the
+    // block is measured here — wrapped lines counted at 0.6 em per character in the
+    // mono face — with a line of slack so the last line is never clipped.
+    const height = Math.round((visual + 0.35) * size * 1.55) + 6;
+    return v_flex().id(`files-code-${index}`).flex_none().mb(10).rounded(6).border_1().border_color(t.border).overflow_hidden()
+      .child(h_flex().flex_none().px(8).pt(5).pb(1).justify_end()
+        .child(div().text_size(9.5).text_color(t.dim).child(block.lang)))
+      .child(div().flex_none().px(2).child(Editor.new(block.state).flex_none().h(height)));
   }
 
   mode(next, cx) {
@@ -206,6 +253,7 @@ export default class Files extends View {
       // hidden editor and both previews can be laid out at once.
       this.code?.release();
       this.code = null;
+      if (this.markdown && !this.blocks) this.blocks = this.build(this.markdown);
     }
     this.touch(cx);
   }
@@ -366,9 +414,17 @@ export default class Files extends View {
     return this.targets?.[name] ?? name;
   }
 
+  // Every fence gets a retained editor, so they are built (and released) in one place.
+  build(text) {
+    return blocks(text).map(block => block.kind === "code"
+      ? { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: 11.5 }) }
+      : block);
+  }
+
   release() {
     this.code?.release(); this.code = null;
-    this.markdown = null; this.image = null;
+    for (const block of this.blocks ?? []) block.state?.release();
+    this.blocks = null; this.markdown = null; this.image = null;
   }
 
   // `image()` reads only from Herdr's own folder, so the bytes are brought in once and
@@ -492,8 +548,17 @@ export default class Files extends View {
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.dim).child("File list limited to 500 entries per folder and 5,000 total")))))
       .when(Boolean(this.image), el => el.child(this.picture()))
-      .when(Boolean(this.markdown) && this.mdMode === "rendered", el => el.child(div().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
-        .child(TextView.markdown(`files-md-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
+      .when(Boolean(this.markdown) && this.mdMode === "rendered", el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
+        .overflow_y_scrollbar().p(10)
+        .on_size_change((size, cx) => {
+          if (Math.abs((this.mdBox ?? 0) - size.width) < 1) return;
+          this.mdBox = size.width;
+          this.touch(cx);
+        })
+        .children((this.blocks ?? []).map((block, i) => block.kind === "code"
+          ? this.codeBlock(block, i)
+          : div().id(`files-prose-${i}`).flex_none().child(
+            TextView.markdown(`files-md-${i}-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, block.text).selectable(true))))))
       .when(Boolean(this.code) && !(this.kind === "markdown" && this.mdMode === "rendered"),
         el => el.child(Editor.new(this.code).flex_1().min_h(0)))
       .when(Boolean(this.file) && !this.code && !this.markdown && !this.image,
