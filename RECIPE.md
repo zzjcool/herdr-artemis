@@ -431,14 +431,13 @@ and the file cannot ride in the overlay's props, so the button leaves a request 
 `setShared("artemis-files.window", { file, root, on, at })` and the window picks it up. `key` is
 constant on purpose: opening Wide again replaces the window where it was dropped instead of stacking
 a second one, and a 600 ms `pickup()` lets that same window follow a second file from the sidebar.
-The header's words became icons once the window existed: `expand` opens it, `close` is the way out, and
-`shrink`/`grow` keep the column to 760 px for a line that has grown too long to read — remembered in
-`setShared("artemis-files.narrow")` like the rendered/source choice, with the icon showing what a
-click will do and a filled background while the narrow column is on. The column is made with padding
-(`px(10 + gutter())`), not `max_w`: measured, `max_w` on a `flex_1` child did nothing and the column
-stayed as wide as the window. Esc closes the window, which needs two things the host does not do by
-itself — a window "does not take the keyboard when it opens", so the view asks for a focus handle and
-`track_focus`es it, and `on_key_down` on the root is what then sees the escape.
+The header's buttons became icons once the window existed — `expand` opens it, `close` is the way out —
+because three of them sat in a 330 px header where a word per button is a third of the row. The page in
+a window is the window's full width: a two-step padding toggle was tried and dropped, since it changed
+only the margins. `close` sits after the filename, in the corner it sits in everywhere else. Esc closes
+the window too, which needs something the host does not do by itself — a window "does not take the
+keyboard when it opens", so the view asks for a focus handle and `track_focus`es it, and only then does
+`on_key_down` on the root see the escape.
 
 **Rendered** is not one `TextView`: the document is cut at its code fences, because the host's
 renderer cannot colour a fence and a mod should not re-invent headings, lists, tables, quotes and
@@ -588,11 +587,13 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
-- **`max_w` does not beat `flex_1` here, and a window does not take the keyboard.** Two layouts that
-  measured wrong on the first try: a `flex_1()` child with `max_w(760).mx_auto()` kept the full window
-  width (padding plus a measured column is what worked), and Esc only arrives if the view asks for a
-  focus handle when the window opens — `on_key_down` alone hears nothing, because the keyboard is
-  somewhere else and the key travels the focus path.
+- **A window does not take the keyboard, so a key cannot reach it by itself.** `on_key_down` on the root
+  hears nothing until the view asks for a focus handle when the window opens and `track_focus`es it:
+  the keyboard is somewhere else, and a key travels the focus path. Measured on Esc, which is the one
+  key a window needs.
+- **`max_w` does not beat `flex_1`.** A `flex_1()` child carrying `max_w(760).mx_auto()` kept the full
+  width of its parent, silently. Capping a column in a flex row means padding around a measured width,
+  not a max on the flex child.
 - **An overlay's copy is not the panel's copy.** Same mod, different world: no `props()` at `init`
   time, no `location()` afterwards. A guard built out of `location()` (`current()` compared `key()`)
   therefore rejected every load in the window, and the window sat on "Loading file…" while the panel
