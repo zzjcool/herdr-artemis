@@ -425,7 +425,39 @@ renderer cannot colour a fence and a mod should not re-invent headings, lists, t
 links. Prose chunks go through `TextView.markdown` unchanged — that is what draws the table in the
 probe document and the bullets under it — and every fence becomes a bordered sheet with its language
 in the corner and a real `Editor` inside, so the colours are exactly the ones the same file gets
-when opened as a `.py`. One consequence, measured: `TextView` ignores inline CSS
+when opened as a `.py`. The cut has one rule worth stating plainly, because getting it wrong does
+not degrade the page, it inverts it: **a fence line the reader does not recognise is not left
+plain — its closing line then opens a block of its own, and the rest of the document moves into
+it.** So the reader accepts any info string (`js`, `js {1,3}`, `bash tab="macOS"`, `{.python}`) and
+keeps only the first word as the language, takes three or more backticks or tildes, requires the
+closing fence to be at least as long as the opening one and to carry nothing (which is what lets a
+document about markdown nest its own fences), and normalises `\r\n` on the way in, since a CRLF
+file otherwise fails every fence test at once. Fences inside a blockquote (`> \`\`\``) stay prose;
+the reader does not strip the `>`.
+
+Past sixty fences the page goes back to the host's renderer in one piece, because every fence is a
+retained editor built in one pass. Measured, that costs only colours: `TextView.markdown` already
+draws a fence as a bordered sheet with the language in the corner, down to the padding — the hybrid
+exists for the token colouring it will not do, and for nothing else.
+
+Two more things the host cannot do inside a document, and the cut solves both. A **picture** written
+`![](shot.png)` is a block only when it is alone on its line, and that test has to be anchored at
+both ends: anchored at one end it matched the first of two pictures and threw the second away
+together with the sentence around it. Anything else stays prose, where the host draws a broken image
+or the alt text — wrong, but visible. The block's path is resolved against the *document's* folder
+(`../img/a.png` from `docs/a/b.md` is `docs/img/a.png`), read through the same three doors a
+single-file preview uses, cached under its bytes' hash, drawn at the width there is room for and
+capped at 480 px tall, never enlarged; a path that climbs out of the panel's folder says so, and an
+`http(s)` picture is not fetched at all — a document must not be able to make the window download
+things. A **link** goes to `follow()`: `http`/`https`/`mailto` is handed to `cx.open_url`, `#anchor`
+is ignored (there is no anchor scrolling), and a path is resolved like a picture and opened in the
+panel — which is what a README's relative links are for. Test for a scheme *before* treating the
+text as a path, or `tel:+1…` becomes a file name and a preview error; a query and an anchor come off
+a path before it is resolved, so `./README.md?raw=1` opens the README. The way back is a trail:
+following a link pushes the file it left, the back arrow pops it, and clicking in the tree starts a
+new one — including when the context changes under it, which is why `refresh()` clears it.
+
+One consequence, measured: `TextView` ignores inline CSS
 (`<span style="color:…">` renders plain, "CSS in HTML is not supported"), and an `Editor` will not
 size itself — with no height it draws two lines and stops — so each fence's height is computed from
 its line count, wrapped lines counted at 0.6 em per character in the mono face, plus a third of a
@@ -517,6 +549,18 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **The host already draws the thing you are rebuilding.** `TextView.markdown` renders a fence as a
+  bordered sheet with the language in the top corner — the same shape this mod builds by hand. The
+  only thing it will not do is colour the tokens. That is a legitimate reason, but it is *one*, and
+  it was discovered by accident: it is what the sixty-fence fallback looks like.
+- **A decision not to act needs a state of its own.** `resolve()` returns `null` when `..` climbs out
+  of the folder, and the first version stored that `null` as "not loaded yet" — so the picture sat on
+  "loading…" forever, in a commit whose message said the path was *dropped*. It is `status:
+  "outside"` now.
+- **Counting characters is not counting width.** A sheet's height is `ceil(columns / perLine)` and the
+  editor face is monospaced, so a CJK character is two cells and a tab runs to the next stop.
+  Counting code units clipped the last line of every Chinese or tab-indented block, silently,
+  because the sheet also has `overflow_hidden`.
 - **One field, one kind of thing.** A picture block's load state was called `state`, the same name a
   fence uses for its retained `EditorState` — so `release()` walked the blocks and called
   `release()` on the *string* `"ready"`: `TypeError: not a function`, thrown inside a timer, which
