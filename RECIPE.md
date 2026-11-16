@@ -444,32 +444,33 @@ for a window floating above terminals: at 20 % the terminal's own lines read str
 `solid` (`#111820`) is the token that means an opaque surface, and `popover` (`#0a1017`) is the other
 one. The panel keeps the smoke, because inside the layout that is the look.
 
-The window is **resizable from its right edge, its bottom edge and the corner**, and the mechanism is
-worth writing down because the host draws no resize handle and offers no API to resize an open overlay.
-What it does offer is the sentence "as big as its content unless width/height": the overlay is opened
-with **no** width or height, so the content is the size — `this.box`, in pixels, written by a 10 px strip
-on the right edge, 10 px on the bottom, and a 12 px square on the corner where they meet, each reporting
-its own cursor (`cursor_ew_resize`, `cursor_ns_resize`, `cursor_nwse_resize`), pressing with
+The window is **resizable from all four edges and all four corners**, and the mechanism is worth writing
+down because the host draws no resize handle and offers no API to resize an open overlay. What it does
+offer is the sentence "as big as its content unless width/height": the overlay is opened with **no**
+width or height, so the content is the size — `this.box`, in pixels, written by 16 px strips on the
+edges and 18 px squares on the corners, each reporting its own cursor, pressing with
 `on_mouse_down("left")` (stopping propagation, or the window would move instead — the host drags a window
 by any press the mod does not claim) and resizing on `on_mouse_move`.
 
-Three measured details, one of which was wrong for two versions:
+What the host does with that content is measured, and it took three wrong guesses to get right:
 
-- **The box is the edge.** A box grown by 240 px drew 240 px wider, so the delta in `this.box` is the
-  delta on the dragged edge, one for one. The first version doubled it, believing the host recentred an
-  overlay whose content changed, and the edge ran away from the pointer at twice its speed.
-- **Only right and down.** The plate's left and top edges stay where they were whatever the box says
-  (content of 560×700, 760×700 and 900×700 all began at the same x; 560×700 and 560×1100 at the same y).
-  `window.bounds()` says why: the overlay window is the whole screen (1214×2530 at 0,30) and the mod's
-  content is a box placed inside it at a fixed point. So a left or top strip cannot exist — growing that
-  way would have to move the window, which an open overlay cannot be asked to do.
-- **The strip must sit on the frame, not on the page.** Move events are delivered to the element the
-  pointer is *over* (`on_mouse_move` … "delivered while this element is hovered"), and there is no mouse
-  capture: the frame follows the pointer only because the strip keeps moving under it. A frozen page
-  rendered as a fixed-size child of the row left the strip at the *old* edge while the frame grew past
-  it, so the pointer followed the frame, the strip did not, the cursor turned back into an arrow and the
-  drag was over after the first event — reported exactly that way. The frozen page is therefore a
-  fixed-size sheet *inside* a `flex_1` clip, and both strips are children of the frame's own width.
+- **The overlay window is the whole screen and the content is centred in it.** `window.bounds()` reports
+  1440×2530 while the plate is 300×300 — and that plate lands at y 1116 of 2530, a 422×1693 one at y 419
+  of 2530: both exactly `(screen − plate) / 2`. So growing `box` by `d` moves **each edge by `d/2`**, and
+  the box has to take **twice** the pointer's movement for the dragged edge to follow it. Used as-is the
+  delta made the strip creep along at half the pointer's speed, the pointer left it after ~25 px and the
+  drag died exactly there — reported as "a little way and then it stops", with a 2 px pointer move logged
+  as growing the box by 1 px.
+- **Every edge moves, and none can be anchored.** The plate grows symmetrically about the centre of the
+  screen. Padding the content to shift that centre was tried and does not survive: the host lays the
+  content out itself, so a spacer only pushes the plate out of the visible area.
+- **The strip has to stay under the pointer.** Move events are delivered to the element the pointer is
+  *over* (`on_mouse_move` … "delivered while this element is hovered") and there is no mouse capture, so
+  the frame follows the pointer only because the strip keeps moving under it. A frozen page rendered as
+  a fixed-size child of the row left the strip at the *old* edge while the frame grew past it — the
+  cursor turned back into an arrow and the drag was over after the first event. The frozen page is a
+  fixed-size sheet *inside* a `flex_1` clip, both strips are children of the frame's own width, and the
+  window body carries the same move handler so a pointer that slips off a strip still drags.
 
 A drag must not re-wrap the page. Measured on a 73 KB document, one frame that changes the width costs
 **56 ms** against **18 ms** for the same frame with the page held still — the host re-wraps every block,
