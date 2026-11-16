@@ -72,6 +72,9 @@ export default class Files extends View {
     // The right-click menu is an overlay: it cannot call back into this view, so it
     // leaves a request in shared state and this picks it up.
     cx.timer.every(500, cx => this.drain(cx));
+    // Markdown has two right answers — the rendered page and the text it was written
+    // as — so the choice is remembered rather than re-made on every file.
+    this.mdMode = shared("artemis-files.mdMode") === "source" ? "source" : "rendered";
   }
 
   watch(root, cx) {
@@ -169,16 +172,45 @@ export default class Files extends View {
         const text = await readTextFile(`${root}/${path}`, { on });
         if (this.file !== path || !this.current(context)) return;
         if (text === null) { this.fileError = "This file is no longer available"; return; }
-        if (this.kind === "markdown") { this.markdown = text; return; }
+        if (this.kind === "markdown") {
+          this.markdown = text;
+          if (this.mdMode === "source") this.code = this.editor(text, "markdown");
+          return;
+        }
         if (text.includes("\0")) { this.fileError = "No preview for this kind of file · right-click to download it"; return; }
-        const t = theme(), ext = path.includes(".") ? path.split(".").pop() : "txt";
-        this.code = EditorState.new({ language: LANG[ext] ?? ext, readonly: true,
-          value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
-          font_family: settings().font_family, font_size: 12,
-          syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 } });
+        this.code = this.editor(text, LANG[path.split(".").pop()] ?? (path.includes(".") ? path.split(".").pop() : "txt"));
       } catch { if (this.file === path && this.current(context)) this.fileError = "Cannot preview this file (binary, too large, or unreadable)"; }
       finally { cx.notify(); }
     });
+  }
+
+  // The read-only editor both a text file and a markdown file's source share. Built in
+  // a handler or a load, never in `render`: `EditorState.new` needs a live host call.
+  editor(text, language) {
+    const t = theme();
+    return EditorState.new({ language, readonly: true,
+      value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
+      font_family: settings().font_family, font_size: 12,
+      syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 } });
+  }
+
+  mode(next, cx) {
+    if (this.mdMode === next) return;
+    this.mdMode = next;
+    setShared("artemis-files.mdMode", next);
+    // Built on the way in, not in `render`: the editor needs a live host call.
+    if (next === "source" && this.markdown && !this.code) this.code = this.editor(this.markdown, "markdown");
+    this.touch(cx);
+  }
+
+  // Two chips, drawn the way a selected row is: the fill says which one you are looking at.
+  chip(label, mode, t, cx) {
+    const on = this.mdMode === mode;
+    return h_flex().id(`files-mode-${mode}`).h(21).px(8).rounded(5).flex_none().items_center().cursor_pointer().text_size(11)
+      .when(on, el => el.bg(t.selected).text_color(t.foreground))
+      .when(!on, el => el.text_color(t.dim).hover(s => s.bg(t.hover)))
+      .on_click((_e, cx) => this.mode(mode, cx))
+      .child(label);
   }
 
   menu(path, entry, cx) {
@@ -444,12 +476,16 @@ export default class Files extends View {
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .when(Boolean(this.file), el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted).on_click((_e, cx) => { this.show(null); cx.notify(); }).child("←")))
         .child(div().font_semibold().child("Files"))
+        .when(this.kind === "markdown" && Boolean(this.file), el => el.child(
+          h_flex().flex_none().ml(6).gap(2).p(2).rounded(7)
+            .child(this.chip("Rendered", "rendered", t, cx))
+            .child(this.chip("Source", "source", t, cx))))
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? "")))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.dim).child("File list limited to 500 entries per folder and 5,000 total")))))
       .when(Boolean(this.image), el => el.child(this.picture()))
-      .when(Boolean(this.markdown), el => el.child(div().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
+      .when(Boolean(this.markdown) && this.mdMode === "rendered", el => el.child(div().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
         .child(TextView.markdown(`files-md-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
       .when(Boolean(this.code), el => el.child(Editor.new(this.code).flex_1().min_h(0)))
       .when(Boolean(this.file) && !this.code && !this.markdown && !this.image,

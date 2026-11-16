@@ -414,7 +414,11 @@ are the shipped mod unchanged.
 
 **`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A **preview** of the clicked row is the panel's other half: an **image** is copied into Herdr's
 own folder and drawn, **markdown** is rendered by `TextView.markdown`, and everything else stays the
-read-only `Editor` with its syntax colours. Why the copy: `image()` reads only from the application
+read-only `Editor` with its syntax colours. A markdown file gets both answers: two chips in the
+header — **Rendered** and **Source** — and the choice is remembered in
+`shared("artemis-files.mdMode")`, because someone reading a README usually wants the same thing
+next time. Source is the same read-only editor a `.js` gets, built on the way into the mode rather
+than in `render`, since `EditorState.new` needs a live host call. Why the copy: `image()` reads only from the application
 folder (`~/.config/herdr-app`), which is why `spaces-icons` and `omarchy-notes` copy their pictures
 there too — and `image()` is the only image API, with no bytes, no URL and no object-fit. The bytes come in by **the cheapest route that can carry them** — and the order matters:
 `fs.readFile` for a local file, **the connection herdr-core already holds** for another machine's
