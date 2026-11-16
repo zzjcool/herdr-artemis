@@ -356,10 +356,16 @@ export default class Files extends View {
   resized(edge, w0, h0, dx, dy) {
     const view = window.viewport_size();
     let w = w0, h = h0;
-    if (edge.includes("e")) w += dx;
-    if (edge.includes("w")) w -= dx;
-    if (edge.includes("s")) h += dy;
-    if (edge.includes("n")) h -= dy;
+    // The double is measured, not assumed: the overlay window is the whole screen and the
+    // content is centred in it (a 300×300 plate landed at y 1116 of 2530, and a 422×1693
+    // one at 419 of 2530 — both exactly (screen − plate) / 2), so growing `box` by `d`
+    // moves each edge by `d/2`. With the delta used as-is the strip crept along at half
+    // the pointer's speed, the pointer left it after ~25 px and the drag died there.
+    const k = 2;
+    if (edge.includes("e")) w += k * dx;
+    if (edge.includes("w")) w -= k * dx;
+    if (edge.includes("s")) h += k * dy;
+    if (edge.includes("n")) h -= k * dy;
     return {
       w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
       h: Math.round(Math.max(MIN_H, Math.min(view.height - 24, h))),
@@ -387,7 +393,9 @@ export default class Files extends View {
 
   endDrag(cx) {
     if (!this.drag) return;
-    if (this.drag.moved) setShared("artemis-files.windowBox", this.box);
+    if (this.drag.moved) {
+      setShared("artemis-files.windowBox", this.box);
+    }
     this.drag = null;
     // The one re-wrap of the whole drag, at the size the drag ended on.
     this.freeze = null;
@@ -411,9 +419,9 @@ export default class Files extends View {
     // 10 px, not 6: the strip has to stay under the pointer for the whole drag.
     return div().id(`files-grip-${edge}`)
       .when(grow, el => el.flex_1()).when(!grow, el => el.flex_none())
-      .when(corner, el => el.w(12).h_full().cursor_nwse_resize())
-      .when(horizontal, el => el.w(10).h_full().cursor_ew_resize())
-      .when(!horizontal && !corner, el => el.h(10).w_full().cursor_ns_resize())
+      .when(corner, el => el.w(18).h_full().cursor_nwse_resize().when(edge === "ne" || edge === "sw", g => g.cursor_nesw_resize()))
+      .when(horizontal, el => el.w(16).h_full().cursor_ew_resize())
+      .when(!horizontal && !corner, el => el.h(16).w_full().cursor_ns_resize())
       .on_mouse_down("left", down)
       .on_mouse_move((e, cx) => this.dragged(e.position, cx))
       .on_mouse_up("left", (_e, cx) => this.endDrag(cx));
@@ -1058,15 +1066,11 @@ export default class Files extends View {
     // `solid` is the token that means an opaque surface.
     return v_flex().id("files-window").w(this.box.w).h(this.box.h)
       .rounded(10).overflow_hidden().bg(t.solid).border_1().border_color(t.border)
-      // The window body continues a drag that left its strip, ends it wherever the button
-      // comes up inside the window, and ends it when the pointer leaves the window at all
-      // (a release outside it never arrives, and a window that follows a pointer with no
-      // button down is worse than one that stops early).
-      .on_mouse_move((e, cx) => this.dragged(e.position, cx))
-      .on_mouse_up("left", (_e, cx) => this.endDrag(cx))
+      .on_mouse_move((e, cx) => this.dragged(e.position, cx, "body"))
+      .on_mouse_up("left", (_e, cx) => this.endDrag(cx, "up-body"))
       // A press anywhere else means the last drag is over — the case a release outside
-      // the window leaves behind.
-      .on_mouse_down_out((_e, cx) => this.endDrag(cx))
+      // the plate leaves behind.
+      .on_mouse_down_out((_e, cx) => this.endDrag(cx, "down-out"))
       // Leaving ends the drag, but not at the first frame outside: a pointer that moves
       // further in one event than the frame is wide is outside for an instant, and the
       // drag must survive that. It does not survive the quarter second after it.
@@ -1074,23 +1078,22 @@ export default class Files extends View {
         if (hovered) { this.away = 0; return; }
         this.away = (this.away ?? 0) + 1;
         const at = this.away;
-        cx.timer.after(250, cx => { if (this.drag && this.away === at && at > 0) this.endDrag(cx); });
+        cx.timer.after(250, cx => { if (this.drag && this.away === at && at > 0) this.endDrag(cx, "hover-grace"); });
       })
+      .child(h_flex().flex_none().h(14)
+        .child(this.grip("nw")).child(this.grip("n", true)).child(this.grip("ne")))
       .child(h_flex().flex_1().min_h(0).items_stretch()
-        // The frozen page still fills the space the grip needs: it is a fixed-size sheet
-        // *inside* a flexible clip, not a fixed-size child of the row. A fixed-size child
-        // left the 10 px strip at the old edge while the frame grew past it — the pointer
-        // followed the frame, the strip did not, and the drag died after one event with
-        // the cursor turning back into an arrow.
+        .child(this.grip("w"))
+        // The frozen page is a fixed-size sheet *inside* a flexible clip, not a fixed-size
+        // child: as a child of the row it left the strip at the old edge while the frame
+        // grew past it, and the pointer followed the frame out of the strip.
         .child(frozen
           ? div().flex_1().min_w(0).overflow_hidden()
             .child(div().w(frozen.w).h(frozen.h).child(inner.size_full()))
           : inner.flex_1().min_w(0).h_full()
             .on_size_change((size, _cx) => { this.innerSize = { w: size.width, h: size.height }; }))
         .child(this.grip("e")))
-      // The bottom row is as tall as the corner, so one square can grab both edges at once.
-      .child(h_flex().flex_none().h(10)
-        .child(this.grip("s", true))
-        .child(this.grip("se")));
+      .child(h_flex().flex_none().h(14)
+        .child(this.grip("sw")).child(this.grip("s", true)).child(this.grip("se")));
   }
 }
