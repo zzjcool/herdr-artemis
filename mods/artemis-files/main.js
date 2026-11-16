@@ -353,26 +353,36 @@ export default class Files extends View {
   // right and down. Growing the content by `d` therefore moves the dragged edge by `d` —
   // the first version doubled it, believing the window recentred, and the edge ran away
   // from the pointer at twice its speed.
-  resized(edge, w0, h0, dx, dy) {
+  // How far the plate's edge moves per unit of `box` is the host's business, not ours, and
+  // it is not constant: a plate centred in the overlay window moves an edge by half the box
+  // change, one placed at the content's origin moves it one for one. Guessing which world we
+  // are in cost four wrong versions, so the drag measures it instead — `observed()` learns
+  // the ratio from the rect the pointer event reports for the element it was delivered to,
+  // and everything else follows from that. The default of 1 is only what the first event of
+  // the first drag uses; after two events the frame is glued to the pointer either way.
+  edgeAt(bounds, edge) {
+    if (!bounds) return null;
+    const r = { x: bounds.x, y: bounds.y, w: bounds.width ?? bounds.size?.width, h: bounds.height ?? bounds.size?.height };
+    if (r.w == null || r.h == null || r.x == null) return null;
+    return {
+      x: edge.includes("e") ? r.x + r.w : edge.includes("w") ? r.x : null,
+      y: edge.includes("s") ? r.y + r.h : edge.includes("n") ? r.y : null,
+    };
+  }
+
+  resized(edge, w0, h0, dx, dy, sx = 1, sy = 1) {
     const view = window.viewport_size();
     let w = w0, h = h0;
-    // The plate is centred in the overlay window — `window.bounds()` is the whole screen
-    // even for a 300×300 plate, and the plate lands at (screen − plate) / 2 — so growing
-    // `box` by `d` moves each edge by `d/2`, and the box has to take twice the pointer's
-    // movement for the dragged edge to stay under it. Confirmed the hard way: at one for
-    // one the frame crawled at half speed and the drag died; at twice the same hand
-    // reported the frame travelling twice as far, which was the same bug seen through a
-    // frame that was not centred yet (the plate is only centred while a drag is running).
-    const k = 2;
-    if (edge.includes("e")) w += k * dx;
-    if (edge.includes("w")) w -= k * dx;
-    if (edge.includes("s")) h += k * dy;
-    if (edge.includes("n")) h -= k * dy;
+    if (edge.includes("e")) w += dx / (sx || 1);
+    if (edge.includes("w")) w -= dx / (sx || 1);
+    if (edge.includes("s")) h += dy / (sy || 1);
+    if (edge.includes("n")) h -= dy / (sy || 1);
     return {
       w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
       h: Math.round(Math.max(MIN_H, Math.min(view.height - 24, h))),
     };
   }
+
 
   // A drag is followed from the strip that took the press **and** from the window body,
   // next to it. Only the strip is 6 px wide, and the pointer stops being over it the
@@ -380,15 +390,30 @@ export default class Files extends View {
   // arrow mid-drag and no further move ever arrived, which left the window stuck at
   // whatever size the last delivered event had asked for. Both handlers run this one
   // method, so an event that arrives twice moves the edge once.
-  dragged(position, cx) {
+  dragged(position, cx, _src, bounds) {
     const d = this.drag;
     if (!d) return;
-    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y);
+    // Learn the ratio from what was actually painted: the previous event told us where the
+    // edge was and how big the box was; this one says where the edge ended up.
+    const at = this.edgeAt(bounds, d.edge);
+    if (at && d.seen) {
+      if (at.x != null && Math.abs(this.box.w - d.seen.w) >= 4) {
+        const r = (at.x - d.seen.x) / (this.box.w - d.seen.w);
+        if (r > 0.2 && r < 1.6) d.sx = (d.sx ?? 1) * 0.55 + r * 0.45;
+      }
+      if (at.y != null && Math.abs(this.box.h - d.seen.h) >= 4) {
+        const r = (at.y - d.seen.y) / (this.box.h - d.seen.h);
+        if (r > 0.2 && r < 1.6) d.sy = (d.sy ?? 1) * 0.55 + r * 0.45;
+      }
+    }
+    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y, d.sx ?? 1, d.sy ?? 1);
+    if (at) d.seen = { x: at.x ?? d.seen?.x ?? 0, y: at.y ?? d.seen?.y ?? 0, w: this.box.w, h: this.box.h };
     if (box.w === this.box.w && box.h === this.box.h) return;
     d.moved = true;
     this.box = box;
     this.touch(cx);
   }
+
 
   endDrag(cx) {
     if (!this.drag) return;
@@ -1065,6 +1090,7 @@ export default class Files extends View {
     // `solid` is the token that means an opaque surface.
     const plate = v_flex().id("files-plate").w(this.box.w).h(this.box.h)
       .rounded(10).overflow_hidden().bg(t.solid).border_1().border_color(t.border)
+      .on_mouse_move((e, cx) => this.dragged(e.position, cx, "plate", e.bounds))
       .child(h_flex().flex_none().h(14)
         .child(this.grip("nw")).child(this.grip("n", true)).child(this.grip("ne")))
       .child(h_flex().flex_1().min_h(0).items_stretch()
