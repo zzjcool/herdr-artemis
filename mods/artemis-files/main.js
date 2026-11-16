@@ -198,8 +198,15 @@ export default class Files extends View {
     if (this.mdMode === next) return;
     this.mdMode = next;
     setShared("artemis-files.mdMode", next);
-    // Built on the way in, not in `render`: the editor needs a live host call.
-    if (next === "source" && this.markdown && !this.code) this.code = this.editor(this.markdown, "markdown");
+    if (next === "source") {
+      // Built on the way in, not in `render`: the editor needs a live host call.
+      if (this.markdown && !this.code) this.code = this.editor(this.markdown, "markdown");
+    } else {
+      // Let the other face go rather than merely stop drawing it, or the panel keeps a
+      // hidden editor and both previews can be laid out at once.
+      this.code?.release();
+      this.code = null;
+    }
     this.touch(cx);
   }
 
@@ -487,7 +494,8 @@ export default class Files extends View {
       .when(Boolean(this.image), el => el.child(this.picture()))
       .when(Boolean(this.markdown) && this.mdMode === "rendered", el => el.child(div().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
         .child(TextView.markdown(`files-md-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
-      .when(Boolean(this.code), el => el.child(Editor.new(this.code).flex_1().min_h(0)))
+      .when(Boolean(this.code) && !(this.kind === "markdown" && this.mdMode === "rendered"),
+        el => el.child(Editor.new(this.code).flex_1().min_h(0)))
       .when(Boolean(this.file) && !this.code && !this.markdown && !this.image,
         el => el.child(div().p(12).text_size(12).text_color(t.dim).child(this.fileError || "Loading file…")))
       .when(Boolean(this.status), el => el.child(h_flex().flex_none().px(12).py(7).items_center().border_t(1).border_color(t.border)

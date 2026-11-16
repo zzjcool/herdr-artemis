@@ -506,6 +506,12 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **Hiding a preview is not the same as letting it go.** Switching a markdown file from `Source` back
+  to `Rendered` left the editor state alive, so both branches of the render were appended and the
+  panel drew the source over the page — two previews, one on top of the other (measured: line numbers
+  floating over rendered prose). Changing mode now *releases* the face it is leaving (`code?.release()`
+  and `null`), and the editor branch also refuses to draw a markdown file in rendered mode. Keeping a
+  hidden editor "to make the next switch instant" is what caused it.
 - **`image()` takes a length, and `undefined` is not one.** `.w(w || undefined)` type-checks and then
   throws at render — `Preview could not be re-rendered; showing the last version that worked.
   expected a number, got nil` — so the first frame (before `on_size_change` has reported a box) must
