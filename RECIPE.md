@@ -447,14 +447,19 @@ one. The panel keeps the smoke, because inside the layout that is the look.
 The window is **resizable by its edges**, and the whole mechanism is worth writing down because the host
 draws no resize handle and offers no API to resize an open overlay. What it does offer is the sentence
 "as big as its content unless width/height": so the overlay is opened with **no** width or height, and
-the content is the size — `this.box`, in pixels, written by a 6 px strip on each edge that reports
-`cursor_ew_resize` / `cursor_ns_resize`, presses with `on_mouse_down("left")` (stopping propagation, or
-the window would move instead — the host drags a window by any press the mod does not claim), and
-resizes on `on_mouse_move`. Two measured details make it work: the overlay **follows its content** at
-runtime (a box grown by 240 px drew 240 px wider), and it stays **centred**, so growing the content by
-`d` moves each edge by only `d/2` — the factor of two in `resized()` is what makes the edge follow the
-pointer instead of half of it. The size is remembered in `setShared("artemis-files.windowBox")` on
-release.
+the content is the size — `this.box`, in pixels, written by a 6 px strip on the right edge, 6 px on the
+bottom, and a 10 px square on the corner where they meet, each reporting its own cursor
+(`cursor_ew_resize`, `cursor_ns_resize`, `cursor_nwse_resize`), pressing with `on_mouse_down("left")`
+(stopping propagation, or the window would move instead — the host drags a window by any press the mod
+does not claim), and resizing on `on_mouse_move`. Two measured details make it work, and one of them
+was wrong for a while: the overlay **follows its content** at runtime (a box grown by 240 px drew 240 px
+wider, measured on the window's border), and it is **anchored at its top-left corner** — content of
+560×700, 760×700 and 900×700 all began at the same x, and 560×700 and 560×1100 at the same y — so
+growing the content extends it right and down and nothing else. Which means `d` in the box is `d` on the
+dragged edge (one for one), and a left or top strip cannot exist: there is no way to move an open
+overlay, so an edge on that side would have to grow the window the wrong way. The first version doubled
+the movement, believing the window recentred, and the edge ran away from the pointer at twice its speed.
+The size is remembered in `setShared("artemis-files.windowBox")` on release.
 
 A drag must not re-wrap the page. Measured on a 73 KB document, one frame that changes the width costs
 **56 ms** against **18 ms** for the same frame with the page held still — the host re-wraps every block,

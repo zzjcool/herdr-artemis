@@ -344,26 +344,29 @@ export default class Files extends View {
     };
   }
 
-  // A 6 px strip on the right edge and on the bottom edge, plus the corner: press, drag,
-  // and the box follows the pointer. Presses are stopped so the window itself does not
-  // move instead — the host drags a window by any press the mod does not claim.
-  // The resize arithmetic, apart from the event so it can be measured on its own. The
-  // overlay is centred by the host, so growing the content by `d` moves each edge by `d/2`:
-  // the factor of two is what makes the edge follow the pointer instead of half of it.
+  // A 6 px strip on the right edge, 6 px on the bottom, and a 10 px square on the corner
+  // where they meet, so a drag can go diagonally. Presses are stopped so the window
+  // itself does not move instead — the host drags a window by any press the mod does not
+  // claim. The left and top edges have no strip: an open overlay is anchored at its
+  // top-left corner (measured: content 560×700, 760×700 and 900×700 all began at the same
+  // x, and 560×700 and 560×1100 at the same y), so growing the content can only extend
+  // right and down. Growing the content by `d` therefore moves the dragged edge by `d` —
+  // the first version doubled it, believing the window recentred, and the edge ran away
+  // from the pointer at twice its speed.
   resized(edge, w0, h0, dx, dy) {
     const view = window.viewport_size();
     let w = w0, h = h0;
-    if (edge.includes("e")) w += 2 * dx;
-    if (edge.includes("w")) w -= 2 * dx;
-    if (edge.includes("s")) h += 2 * dy;
-    if (edge.includes("n")) h -= 2 * dy;
+    if (edge.includes("e")) w += dx;
+    if (edge.includes("w")) w -= dx;
+    if (edge.includes("s")) h += dy;
+    if (edge.includes("n")) h -= dy;
     return {
       w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
       h: Math.round(Math.max(MIN_H, Math.min(view.height - 24, h))),
     };
   }
 
-  grip(edge) {
+  grip(edge, grow = false) {
     const down = (e, cx) => {
       this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h };
       // Re-wrapping the page at every intermediate width is the one thing a drag cannot
@@ -384,10 +387,13 @@ export default class Files extends View {
       this.box = box;
       this.touch(cx);
     };
-    const ew = edge === "e" || edge === "w";
-    return div().id(`files-grip-${edge}`).flex_none()
-      .when(ew, el => el.w(6).h_full().cursor_ew_resize())
-      .when(!ew, el => el.h(6).w_full().cursor_ns_resize())
+    const horizontal = edge === "e" || edge === "w";
+    const corner = edge.length === 2;
+    return div().id(`files-grip-${edge}`)
+      .when(grow, el => el.flex_1()).when(!grow, el => el.flex_none())
+      .when(corner, el => el.w(10).h_full().cursor_nwse_resize())
+      .when(horizontal, el => el.w(6).h_full().cursor_ew_resize())
+      .when(!horizontal && !corner, el => el.h(6).w_full().cursor_ns_resize())
       .on_mouse_down("left", down)
       .on_mouse_move(move);
   }
@@ -1037,14 +1043,15 @@ export default class Files extends View {
         this.freeze = null;
         this.touch(cx);
       })
-      .child(this.grip("n"))
       .child(h_flex().flex_1().min_h(0).items_stretch()
-        .child(this.grip("w"))
         .child(frozen
           ? div().flex_none().w(frozen.w).h(frozen.h).overflow_hidden().child(inner.size_full())
           : inner.flex_1().min_w(0).h_full()
             .on_size_change((size, _cx) => { this.innerSize = { w: size.width, h: size.height }; }))
         .child(this.grip("e")))
-      .child(this.grip("s"));
+      // The bottom row is as tall as the corner, so one square can grab both edges at once.
+      .child(h_flex().flex_none().h(10)
+        .child(this.grip("s", true))
+        .child(this.grip("se")));
   }
 }
