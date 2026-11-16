@@ -5,7 +5,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
-import { kindOf, dimensions, cacheName, extOf, CACHE } from "./preview.js";
+import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
 import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
@@ -18,6 +18,9 @@ const key = () => JSON.stringify(location());
 const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
 const PER_FOLDER = 500, TOTAL = 5000;
 const DOWNLOADS = "Downloads", PICKUP = 15000, SHOWN = 9000, SSH_TIMEOUT = 590000;
+// herdr-core's channel carries text and stops at 8 MiB; base64 grows a file by a third,
+// so a little over 5 MB of picture is what fits through it.
+const CORE_MAX = 5 * 1024 * 1024;
 
 // `on` names a machine the way herdr-core does, and ssh needs that machine's `target`,
 // which is a different string (`nj-host` is reached as `nj-host-ts`). A target is an
@@ -297,8 +300,14 @@ export default class Files extends View {
     const argv = ["-q", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"];
     if (port) argv.push("-P", String(port));
     if (request.dir) argv.push("-r");
-    argv.push(`${user ? `${user}@` : ""}${host}:${request.path}`, dest);
-    return exec("scp", argv, { timeout: SSH_TIMEOUT });
+    const source = `${user ? `${user}@` : ""}${host}:${request.path}`;
+    const first = await exec("scp", [...argv, source, dest], { timeout: SSH_TIMEOUT });
+    if (first.code === 0) return first;
+    // A host with no sftp subsystem, or one that closed the session: `-O` asks the
+    // remote for its own `scp` instead of opening a sftp session. Measured as the
+    // difference between `Connection closed` and a file.
+    const second = await exec("scp", ["-O", ...argv, source, dest], { timeout: SSH_TIMEOUT });
+    return second.code === 0 ? second : first;
   }
 
   // herdr-core names machines; ssh needs their `target`, a different string. A core that
@@ -330,15 +339,12 @@ export default class Files extends View {
   async showImage(path, source, on, context, cx) {
     cx.spawn(async cx => {
       const dir = `${appHome()}/${CACHE}`, ext = extOf(path);
-      let temp = null;
       try {
         await fs.mkdir(dir, { recursive: true }).catch(() => null);
-        temp = `${dir}/incoming-${Date.now()}.${ext || "bin"}`;
-        const copy = on
-          ? await this.pull({ path: source, dir: false }, temp)
-          : await exec("cp", [expanded(source), temp], { timeout: SSH_TIMEOUT });
-        if (copy.code !== 0) throw new Error(lastLine(copy.stderr) || "cannot read this file");
-        const bytes = await fs.readFile(temp);
+        // Three ways in, cheapest and most reliable first: `fs` for a local file, the
+        // core connection for another machine's, and only then a copy process.
+        const bytes = (on ? await this.coreBytes(source, on).catch(() => null) : await fs.readFile(expanded(source)).catch(() => null))
+          ?? await this.copied(source, on);
         const name = cacheName(bytes, ext);
         if (!(await fs.exists(`${dir}/${name}`).catch(() => false))) await fs.writeFile(`${dir}/${name}`, bytes);
         if (this.file !== path || !this.current(context)) return;
@@ -346,12 +352,43 @@ export default class Files extends View {
         this.image = { path: `${CACHE}/${name}`, width: size?.width ?? null, height: size?.height ?? null };
         this.keep(name);
       } catch (e) {
-        if (this.file === path && this.current(context)) this.fileError = `No preview of this picture · ${lastLine(e?.message ?? e)}`;
+        if (this.file === path && this.current(context)) {
+          this.fileError = `No preview of this picture · ${lastLine(e?.message ?? e)}`;
+        }
       } finally {
-        if (temp) await fs.unlink(temp).catch(() => null);
         if (this.file === path && this.current(context)) this.touch(cx);
       }
     });
+  }
+
+  // Another machine's bytes through the connection herdr-core already holds: one
+  // command, no new ssh session — which is the whole point, because `scp` opens one
+  // and a host that has no sftp subsystem (or limits sessions) answers
+  // `scp: Connection closed`.
+  async coreBytes(path, on) {
+    const r = await exec("sh", ["-c", 'base64 "$1" | tr -d "\\n"', "preview", path], { on });
+    if (r.code !== 0) throw new Error(lastLine(r.stderr) || "cannot read this file");
+    const text = (r.stdout ?? "").trim();
+    if (text.length > CORE_MAX * 1.4) throw new Error("too large for the core channel");
+    const bytes = decode(text);
+    if (!bytes.length) throw new Error("empty file");
+    return bytes;
+  }
+
+  // The long way: copy the file in, then read back what was written. Used when the core
+  // channel cannot carry it, and for local paths `fs` is not allowed to open.
+  async copied(source, on) {
+    const dir = `${appHome()}/${CACHE}`, ext = extOf(source), temp = `${dir}/incoming-${Date.now()}.${ext || "bin"}`;
+    await fs.mkdir(dir, { recursive: true }).catch(() => null);
+    try {
+      const result = on
+        ? await this.pull({ path: source, dir: false }, temp)
+        : await exec("cp", [expanded(source), temp], { timeout: SSH_TIMEOUT });
+      if (result.code !== 0) throw new Error(lastLine(result.stderr) || "cannot read this file");
+      return await fs.readFile(temp);
+    } finally {
+      await fs.unlink(temp).catch(() => null);
+    }
   }
 
   // A preview folder, not an archive: the last forty pictures opened stay, the rest go.

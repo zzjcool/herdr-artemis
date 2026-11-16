@@ -25,6 +25,8 @@ export function kindOf(path) {
   return "text";
 }
 
+export const decode = (base64) => Buffer.from(base64, "base64");
+
 export const cacheName = (bytes, ext) => `${createHash("sha1").update(bytes).digest("hex")}${ext ? `.${ext}` : ""}`;
 
 const u16 = (b, o) => (b[o] << 8) | b[o + 1];

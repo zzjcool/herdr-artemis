@@ -416,11 +416,19 @@ are the shipped mod unchanged.
 own folder and drawn, **markdown** is rendered by `TextView.markdown`, and everything else stays the
 read-only `Editor` with its syntax colours. Why the copy: `image()` reads only from the application
 folder (`~/.config/herdr-app`), which is why `spaces-icons` and `omarchy-notes` copy their pictures
-there too — and `image()` is the only image API, with no bytes, no URL and no object-fit. So the
-bytes are brought in through *the same two routes as a download* — `cp` here, `scp` from another
-machine — into `data/artemis-files/preview/`, **named by the SHA-1 of their own bytes**: an edited
-picture is a new name, and the host is never asked whether it reloaded a path it had already drawn.
-Forty names are kept and the rest are unlinked; it is a preview folder, not an archive.
+there too — and `image()` is the only image API, with no bytes, no URL and no object-fit. The bytes come in by **the cheapest route that can carry them** — and the order matters:
+`fs.readFile` for a local file, **the connection herdr-core already holds** for another machine's
+(`exec("sh", ['base64 "$1" | tr -d "\n"'], { on })`, decoded here), and only then a copy process
+(`cp`, or `scp` plus its legacy `-O` retry for a download). The middle one is the answer to a real
+failure: `scp` opens its own ssh session, and a host with no sftp subsystem — or one that limits
+sessions — answers `scp: Connection closed`, which is exactly what a preview of
+`web/assets/icon-512.png` on a remote space said before this order was chosen. herdr-core is already
+connected to that machine for its terminals, so a picture under ~5 MB (herdr-core's channel carries
+text and stops at 8 MiB; base64 grows a file by a third) costs one command and no new session, and a
+bigger one still falls back to `scp -O`. Either way it lands in `data/artemis-files/preview/`,
+**named by the SHA-1 of its own bytes**: an edited picture is a new name, and the host is never asked
+whether it reloaded a path it had already drawn. Forty names are kept and the rest are unlinked; it
+is a preview folder, not an archive.
 
 The size is measured here because nothing else can: `preview.js` reads the header of PNG, JPEG, GIF,
 BMP, WebP and SVG (12 lines of arithmetic, no decoder) and the picture is scaled to **fit** the box
