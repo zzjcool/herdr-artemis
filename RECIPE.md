@@ -421,28 +421,26 @@ next time. Source is the same read-only editor a `.js` gets, built on the way in
 than in `render`, since `EditorState.new` needs a live host call.
 
 The sidebar is a third of a thousand pixels wide, which is not a width to read a table in, so the
-header carries **Wide**: `openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview",
-width: 0.62, height: 0.82 })` — a real window, not a dialog — and the window's copy of the mod draws
-the same page with no tree, a size larger. Three things had to be arranged for that copy to work at
-all, and each of them was a silent failure first: a window's copy has no `props()` until after `init`
-(it is empty there — an `after(120)` timer is when it is filled), it has no `location()` either, so
-`current()` — which used to compare `key()` — is asked only whether it is still the same context,
-and the file cannot ride in the overlay's props, so the button leaves a request in
-`setShared("artemis-files.window", { file, root, on, at })` and the window picks it up. `key` is
-constant on purpose: opening Wide again replaces the window where it was dropped instead of stacking
-a second one, and a 600 ms `pickup()` lets that same window follow a second file from the sidebar.
-The header's buttons became icons once the window existed — `expand` opens it, `close` is the way out —
-because three of them sat in a 330 px header where a word per button is a third of the row; `close` sits
-after the filename, in the corner it sits in everywhere else. Esc closes the window too, which needs
-something the host does not do by itself — a window "does not take the keyboard when it opens", so the
-view asks for a focus handle and `track_focus`es it, and only then does `on_key_down` on the root see the
-escape.
+header carries **expand**: `run("tab.new", { name: file, mod: "artemis-files", props: { wide: true,
+file, root, on } })` — a **tab**, the host's own pane, not a floating window. The tab is handed its
+file through `props()`, which is empty in `init` (an `after(120)` timer is when it is filled), and it
+draws the same page with no tree and a size larger. A tab brings its own frame, its own close button
+and native resizing — the split handles and `layout.resize` — with no code in this mod, which is the
+whole reason for it.
 
-A window's surface is **`solid`**, not `background`. This theme's `background` is `#0e162133` — 20 %
-smoke over the photograph, which is exactly right for a pane that sits in the layout and exactly wrong
-for a window floating above terminals: at 20 % the terminal's own lines read straight through the page.
-`solid` (`#111820`) is the token that means an opaque surface, and `popover` (`#0a1017`) is the other
-one. The panel keeps the smoke, because inside the layout that is the look.
+*Watch out:* a **window** overlay is the obvious-looking alternative and it is a dead end. It is
+sized by its content — `openOverlay` takes `width`/`height` once at open and otherwise the window
+grows with what it shows — and it has **no** edge resize at all, so a draggable edge means growing
+the content frame by frame. Four versions did that and none of them made the pointer, the drawn frame
+and the window agree: the window is placed in screen space and a mod cannot read it back
+(`window.bounds()` and `viewport_size()` both answer with the whole screen, not the window), so the
+ratio between the hand and the edge was never the same twice. A press the mod does not stop is a
+window drag, so a strip that is clipped outside the frame hands the gesture to the host, which moves
+the window with its content size untouched — which reads as "the drag does not work". Use a tab.
+
+The tab keeps the panel's smoke, because inside the layout that is the look; the layout's plate
+(`rounded(10)`, its own border) is drawn by the panel only, since in a tab the host paints the pane
+frame and a second one inside it would double the border.
 
 The window is **resizable from all four edges and all four corners**, and the mechanism is worth writing
 down because the host draws no resize handle and offers no API to resize an open overlay. What it does

@@ -6,7 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
-import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, props, readTextFile, run, setShared, shared, watchFolder, theme, settings } from "herdr";
+import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, props, readTextFile, run, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -284,7 +284,11 @@ export default class Files extends View {
   // hand-rolled versions were fighting and losing.
   popout(cx) {
     if (!this.file) return;
-    run("tab.new", { mod: "artemis-files", props: { wide: true, file: this.file, root: this.root, on: this.on } });
+    run("tab.new", {
+      name: this.file.split("/").pop(),
+      mod: "artemis-files",
+      props: { wide: true, file: this.file, root: this.root, on: this.on },
+    });
   }
 
   watch(root, cx) {
