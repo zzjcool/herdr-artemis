@@ -42,7 +42,9 @@ export function dimensions(bytes, ext) {
   try {
     if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50) return { width: u32(b, 16), height: u32(b, 20) };          // PNG
     if (b.length > 10 && b[0] === 0x47 && b[1] === 0x49) return { width: le16(b, 6), height: le16(b, 8) };          // GIF
-    if (b.length > 26 && b[0] === 0x42 && b[1] === 0x4d) return { width: le32(b, 18), height: le32(b, 22) };        // BMP
+    // BMP height is signed: a top-down bitmap stores it negative, and reading it raw
+    // gave a four-billion-pixel image that was then scaled to 1×1.
+    if (b.length > 26 && b[0] === 0x42 && b[1] === 0x4d) return { width: le32(b, 18), height: Math.abs(le32(b, 22) | 0) }; // BMP
     if (b.length > 30 && b[0] === 0xff && b[1] === 0xd8) return jpeg(b);                                            // JPEG
     if (b.length > 30 && b[0] === 0x52 && b[8] === 0x57) return webp(b);                                            // RIFF/WEBP
     if (ext === "svg" || (b[0] === 0x3c && b[1] === 0x73)) return svg(b);                                           // <svg

@@ -55,26 +55,70 @@ export function blocks(text) {
   const out = [], prose = [];
   let code = null;
   const flush = () => { if (prose.length) { out.push({ kind: "md", text: prose.join("\n") }); prose.length = 0; } };
-  for (const line of String(text).split("\n")) {
-    const fence = /^\s*```[ \t]*([\w#+.-]*)[ \t]*$/.exec(line);
+  // A CRLF file otherwise fails every fence test — a host that hands over `\r\n`
+  // would turn the whole document into one code block, or none at all.
+  for (const line of String(text).replace(/\r\n?/g, "\n").split("\n")) {
     if (code) {
-      if (fence) { out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") }); code = null; }
-      else code.lines.push(line);
-    } else if (fence) {
+      // The closing fence must be at least as long as the opening one and carry no
+      // info string; anything else is content (which is what lets a document about
+      // markdown nest fences).
+      const close = /^\s*(`{3,}|~{3,})\s*$/.exec(line);
+      if (close && close[1][0] === code.fence[0] && close[1].length >= code.fence.length) {
+        out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") });
+        code = null;
+      } else code.lines.push(line);
+      continue;
+    }
+    // Any info string is allowed — `js {1,3}`, `bash tab="macOS"`, `{ .python }`. A
+    // fence this reader rejects is not merely left plain: it inverts the document,
+    // because the closing line then opens a block of its own.
+    const open = /^\s*(`{3,}|~{3,})\s*(.*)$/.exec(line);
+    if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
       flush();
-      code = { lang: fence[1].toLowerCase(), lines: [] };
-    } else if (/(^|[^\w])!\[[^\]]*\]\(\s*[^)\s]+(\s+["'][^"']*["'])?\s*\)\s*$/.test(line) && /^\s*!\[/.test(line)) {
-      // A picture alone on a line: the host would draw it as a broken image with
-      // alt text, because `TextView` resolves `![](...)` against Herdr's folder and
-      // not against the markdown file. So it becomes a block of its own.
+      code = { fence: open[1], lang: language(open[2]), lines: [] };
+      continue;
+    }
+    // A picture alone on a line: the host would draw it broken, because `TextView`
+    // resolves `![](...)` against Herdr's folder rather than against the document.
+    // Anchored at both ends on purpose — a looser test ate the second picture on a
+    // line that held two, and the words with it.
+    const image = /^\s*!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+["'][^"']*["'])?\s*\)\s*$/.exec(line);
+    if (image) {
       flush();
-      const match = /^\s*!\[([^\]]*)\]\(\s*([^)\s]+)/.exec(line);
-      out.push({ kind: "image", alt: match[1], src: match[2] });
-    } else prose.push(line);
+      out.push({ kind: "image", alt: image[1], src: image[2] });
+      continue;
+    }
+    prose.push(line);
   }
   if (code) out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") });
   else flush();
   return out;
+}
+
+// The first word of a fence's info string, however it is dressed: `js`, `{.js}`,
+// `js {1,3}`, `python title="a.py"`.
+function language(info) {
+  const text = String(info ?? "").trim();
+  const braced = /^\{\s*\.?([\w#+.-]+)/.exec(text);
+  if (braced) return braced[1].toLowerCase();
+  return (text.split(/\s+/)[0] ?? "").replace(/[^\w#+.-]/g, "").toLowerCase();
+}
+
+// How wide a line is in the mono face: a wide character is two cells, a tab runs to
+// the next stop. Counting characters instead clipped every block of CJK or tabs,
+// because the height a sheet gets comes from this number.
+export function columns(line) {
+  let width = 0;
+  for (const ch of String(line)) {
+    const c = ch.codePointAt(0);
+    if (ch === "\t") width += 8 - (width % 8);
+    else if (c >= 0x1100 && (c <= 0x115f || c === 0x2329 || c === 0x232a || (c >= 0x2e80 && c <= 0xa4cf && c !== 0x303f) ||
+      (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff) || (c >= 0xfe30 && c <= 0xfe6f) ||
+      (c >= 0xff00 && c <= 0xff60) || (c >= 0xffe0 && c <= 0xffe6) || (c >= 0x1f300 && c <= 0x1f64f) ||
+      (c >= 0x1f900 && c <= 0x1f9ff) || (c >= 0x20000 && c <= 0x3fffd))) width += 2;
+    else width += 1;
+  }
+  return width;
 }
 
 // A folder path as a command that takes paths (not a shell) needs it: `cp` has no idea
@@ -156,7 +200,7 @@ export default class Files extends View {
       if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file });
       const saved = this.saved.get(next);
       this.context = { key: next, cwd, on }; this.root = cwd; this.on = on; this.entries = new Map(); this.folders = new Set(saved?.folders);
-      this.pending = new Set(); this.marks = {}; this.show(null); this.watched = null; this.error = null; this.limited = false;
+      this.pending = new Set(); this.marks = {}; this.trail = []; this.show(null); this.watched = null; this.error = null; this.limited = false;
       this.loading = false;
       if (saved?.file) this.show(saved.file, cx);
     }
@@ -227,7 +271,7 @@ export default class Files extends View {
           if (this.mdMode === "source") this.code = this.editor(text, "markdown");
           else {
             this.blocks = this.build(text, path);
-            this.loadImages(context, cx);
+            if (this.blocks) this.loadImages(context, cx);
           }
           return;
         }
@@ -260,6 +304,7 @@ export default class Files extends View {
     const note = (text) => div().flex_none().mb(10).py(8).px(10).rounded(6).border_1().border_color(t.border)
       .text_size(11).text_color(t.dim).child(text);
     if (block.linked) return note(`${block.alt || "image"} · ${block.src} (remote pictures are not fetched)`);
+    if (block.status === "outside") return note(`${block.alt || block.src} · outside this folder, not opened`);
     if (block.status === "failed") return note(`${block.alt || block.path} · cannot read this picture`);
     if (!block.picture) return note(`${block.alt || block.path} · loading…`);
     const { width: iw, height: ih } = block.picture;
@@ -269,8 +314,10 @@ export default class Files extends View {
       w = Math.max(1, Math.round(iw * scale));
       h = Math.max(1, Math.round(ih * scale));
     }
-    return h_flex().flex_none().mb(10).justify_center()
-      .child(h && w ? image(block.picture.path).w(w).h(h) : image(block.picture.path).w(width));
+    // A size the header did not give is not a licence to take the whole page: the
+    // picture is still capped, it just gets clipped rather than scaled.
+    if (!h) return div().flex_none().mb(10).max_h(480).overflow_hidden().child(image(block.picture.path).w(w));
+    return h_flex().flex_none().mb(10).justify_center().child(image(block.picture.path).w(w).h(h));
   }
 
   // A link in a rendered page: an address goes to the system browser, a path opens in
@@ -278,9 +325,16 @@ export default class Files extends View {
   // it is what the back arrow walks.
   follow(url, cx) {
     const raw = String(url ?? "").trim();
-    if (/^(https?|mailto):/i.test(raw)) return cx.open_url(raw);
-    if (raw.startsWith("#")) return;
-    const target = raw.split("#")[0];
+    if (!raw || raw.startsWith("#")) return;
+    // Anything with a scheme is not a file in this folder. The two the system browser
+    // can take are handed over; `tel:`, `data:`, `file:` and `javascript:` are simply
+    // not opened — before this they became file paths and produced a preview error.
+    const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(raw)?.[1]?.toLowerCase();
+    if (scheme) {
+      if (scheme === "http" || scheme === "https" || scheme === "mailto") cx.open_url(raw);
+      return;
+    }
+    const target = raw.split("#")[0].split("?")[0];
     if (!target) return;
     const path = resolve(folderOf(this.file ?? ""), target.replace(/^\.\//, ""));
     if (!path) return;
@@ -295,7 +349,7 @@ export default class Files extends View {
     const t = theme(), size = 11.5;
     const width = Math.max(160, (this.mdBox ?? 300) - 24);
     const perLine = Math.max(24, Math.floor((width - 16) / (size * 0.6)));
-    const visual = block.text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(line.length / perLine)), 0);
+    const visual = block.text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(columns(line) / perLine)), 0);
     // The editor will not size itself (measured: no height draws two lines), so the
     // block is measured here — wrapped lines counted at 0.6 em per character in the
     // mono face — with a line of slack so the last line is never clipped.
@@ -312,15 +366,15 @@ export default class Files extends View {
     setShared("artemis-files.mdMode", next);
     if (next === "source") {
       // Built on the way in, not in `render`: the editor needs a live host call.
-      if (this.markdown && !this.code) this.code = this.editor(this.markdown, "markdown");
+      if (this.markdown !== null && !this.code) this.code = this.editor(this.markdown, "markdown");
     } else {
       // Let the other face go rather than merely stop drawing it, or the panel keeps a
       // hidden editor and both previews can be laid out at once.
       this.code?.release();
       this.code = null;
-      if (this.markdown && !this.blocks) {
+      if (this.markdown !== null && !this.blocks) {
         this.blocks = this.build(this.markdown, this.file);
-        this.loadImages(this.context, cx);
+        if (this.blocks) this.loadImages(this.context, cx);
       }
     }
     this.touch(cx);
@@ -484,15 +538,21 @@ export default class Files extends View {
 
   // Every fence gets a retained editor, so they are built (and released) in one place.
   build(text, path) {
-    return blocks(text).map(block => {
+    const chunks = blocks(text);
+    // Every fence is a retained editor built in one pass; a document with a hundred of
+    // them is a hundred host calls in a row. Past sixty the page goes back to the
+    // host's own renderer — it keeps every word and loses only the colours.
+    if (chunks.filter(chunk => chunk.kind === "code").length > 60) return null;
+    return chunks.map(block => {
       if (block.kind === "code") {
         return { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: 11.5 }) };
       }
       if (block.kind === "image") {
         // A remote picture (http) is not fetched: the host's image loader has no URL
         // and a document should not be able to make the window download things.
-        const linked = /^([a-z]+:)?\/\//i.test(block.src);
-        return { ...block, linked, path: linked ? null : resolve(folderOf(path), block.src) };
+        const linked = /^([a-z][a-z0-9+.-]*:)?\/\//i.test(block.src);
+        const target = linked ? null : resolve(folderOf(path), block.src);
+        return { ...block, linked, path: target || null, status: target || linked ? undefined : "outside" };
       }
       return block;
     });
@@ -501,13 +561,14 @@ export default class Files extends View {
   // Pictures are read after the page is on screen, one at a time, through the same
   // three doors a single-file preview uses.
   async loadImages(context, cx) {
+    const root = this.root, on = this.on;
     for (const block of this.blocks ?? []) {
       if (block.kind !== "image" || block.picture || block.status) continue;
       if (!block.path) { block.status = "linked"; continue; }
       block.status = "loading";
       this.touch(cx);
       try {
-        block.picture = await this.cache(await this.bytesOf(`${this.root}/${block.path}`, this.on), extOf(block.path));
+        block.picture = await this.cache(await this.bytesOf(`${root}/${block.path}`, on), extOf(block.path));
         block.status = "ready";
       } catch {
         block.status = "failed";
@@ -602,7 +663,13 @@ export default class Files extends View {
     const before = shared("artemis-files.previews") ?? [];
     const kept = [name, ...before.filter(n => n !== name)].slice(0, 40);
     setShared("artemis-files.previews", kept);
-    for (const gone of before.filter(n => !kept.includes(n))) fs.unlink(`${appHome()}/${CACHE}/${gone}`).catch(() => null);
+    // Never unlink a picture this page is still drawing: a document with more than
+    // forty of them would otherwise delete its own first ones as it loads.
+    const shown = new Set((this.blocks ?? []).map(b => b.picture?.path?.split("/").pop()).filter(Boolean));
+    if (this.image) shown.add(this.image.path.split("/").pop());
+    for (const gone of before.filter(n => !kept.includes(n) && !shown.has(n))) {
+      fs.unlink(`${appHome()}/${CACHE}/${gone}`).catch(() => null);
+    }
   }
 
   // The host has no object-fit and cannot report an image's size, so the picture is
@@ -664,7 +731,11 @@ export default class Files extends View {
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.dim).child("File list limited to 500 entries per folder and 5,000 total")))))
       .when(Boolean(this.image), el => el.child(this.picture()))
-      .when(Boolean(this.markdown) && this.mdMode === "rendered", el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
+      // More fences than the editor budget allows: one renderer for the whole page,
+      // colours and all the words.
+      .when(this.markdown !== null && this.mdMode === "rendered" && !this.blocks, el => el.child(div().id("files-md").flex_1().min_h(0).text_size(12.5)
+        .child(TextView.markdown(`files-md-all-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
+      .when(this.markdown !== null && this.mdMode === "rendered" && Boolean(this.blocks), el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(12.5)
         .overflow_y_scrollbar().p(10)
         .on_size_change((size, cx) => {
           if (Math.abs((this.mdBox ?? 0) - size.width) < 1) return;
@@ -680,7 +751,7 @@ export default class Files extends View {
         }))))
       .when(Boolean(this.code) && !(this.kind === "markdown" && this.mdMode === "rendered"),
         el => el.child(Editor.new(this.code).flex_1().min_h(0)))
-      .when(Boolean(this.file) && !this.code && !this.markdown && !this.image,
+      .when(Boolean(this.file) && !this.code && this.markdown === null && !this.image,
         el => el.child(div().p(12).text_size(12).text_color(t.dim).child(this.fileError || "Loading file…")))
       .when(Boolean(this.status), el => el.child(h_flex().flex_none().px(12).py(7).items_center().border_t(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(this.status.tone === "error" ? t.blocked : this.status.tone === "done" ? t.ansi2 : t.dim).child(this.status.text))));
