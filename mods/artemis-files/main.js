@@ -304,7 +304,7 @@ export default class Files extends View {
   // A window's copy has no `location()` to agree with — it was handed its folder — so it
   // is asked only whether it is still the same context, not whether the space agrees.
   current(context) {
-    return this.context === context && (this.wide || key() === context.key);
+    return this.context === context && (this.wide || (this.spot()?.key ?? key()) === context.key);
   }
 
   async loadFolder(path, context) {
@@ -316,9 +316,22 @@ export default class Files extends View {
     if (entries.length > PER_FOLDER || used + entries.length > TOTAL) this.limited = true;
   }
 
+  // A mod pane — the preview tab — has no terminal, and `location()` falls back to the
+  // space's folder for it, so opening the preview used to re-root this panel at the
+  // workspace and lose the folder it was reading. While the focused pane has no terminal,
+  // the context this panel already has is the answer.
+  blind() {
+    const f = focused();
+    return Boolean(f) && !f.terminal;
+  }
+
+  spot() {
+    return this.blind() && this.context ? this.context : null;
+  }
+
   refresh(cx) {
     if (this.wide) return;
-    const { cwd, on } = location(), next = key();
+    const spot = this.spot(), { cwd, on } = spot ?? location(), next = spot ? spot.key : key();
     if (next !== this.context?.key) {
       if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file });
       const saved = this.saved.get(next);
