@@ -112,6 +112,27 @@ export function blocks(text) {
       out.push({ kind: "image", alt: image[1], src: image[2] });
       continue;
     }
+    // A picture *inside* a sentence. The host will draw that one broken (it resolves the
+    // path against its own folder), so the line is cut around it: the words go back to
+    // the host, the picture becomes a block of its own. The cost is honest — a picture
+    // in the middle of a sentence takes a line of its own — and the alternative is a
+    // broken image with alt text, which is what this replaces.
+    const inline = [...line.matchAll(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+["'][^"']*["'])?\s*\)/g)];
+    if (inline.length) {
+      flush();
+      if (line.slice(0, inline[0].index).trim()) prose.push(line.slice(0, inline[0].index));
+      for (let k = 0; k < inline.length; k++) {
+        const picture = inline[k];
+        const rest = line.slice(picture.index + picture[0].length, k + 1 < inline.length ? inline[k + 1].index : undefined);
+        // Close the words before the picture, or it lands after the paragraph instead
+        // of inside it; then push the words after it back into the prose that follows,
+        // so two sides of one sentence do not become two paragraphs.
+        flush();
+        out.push({ kind: "image", alt: picture[1], src: picture[2], inline: true });
+        if (rest.trim()) prose.push(rest);
+      }
+      continue;
+    }
     prose.push(line);
   }
   if (code) out.push({ kind: "code", lang: code.lang, text: code.lines.join("\n") });

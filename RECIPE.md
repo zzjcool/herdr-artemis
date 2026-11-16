@@ -446,10 +446,14 @@ draws a fence as a bordered sheet with the language in the corner, down to the p
 exists for the token colouring it will not do, and for nothing else.
 
 Two more things the host cannot do inside a document, and the cut solves both. A **picture** written
-`![](shot.png)` is a block only when it is alone on its line, and that test has to be anchored at
-both ends: anchored at one end it matched the first of two pictures and threw the second away
-together with the sentence around it. Anything else stays prose, where the host draws a broken image
-or the alt text — wrong, but visible. The block's path is resolved against the *document's* folder
+`![](shot.png)` becomes a block — alone on its line, and also inside a sentence, where the line is cut
+around it: the words before it are closed into a paragraph, the words after it are pushed back into
+the prose that follows (so two sides of one sentence do not become two paragraphs), and the picture
+takes a line of its own. That last part is the price and it is worth naming: a picture mid-sentence
+loses its place in the line. The alternative is what the host draws — a broken image with the alt
+text, in every sentence — so the trade is made deliberately, and a test that only looked at whole
+lines has to stay anchored at both ends anyway: anchored at one end it matched the first of two
+pictures and threw the second away together with the sentence around it. The block's path is resolved against the *document's* folder
 (`../img/a.png` from `docs/a/b.md` is `docs/img/a.png`), read through the same three doors a
 single-file preview uses, cached under its bytes' hash, drawn at the width there is room for and
 capped at 480 px tall, never enlarged; a path that climbs out of the panel's folder says so, and an
