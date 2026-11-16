@@ -978,7 +978,6 @@ export default class Files extends View {
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? ""))
         // The way out sits in the corner it sits in everywhere else.
         .when(Boolean(this.file) && !this.wide, el => el.child(this.icon("expand", cx => this.popout(cx), t, cx)))
-        .when(this.wide, el => el.child(this.icon(this.big ? "restore" : "maximize", cx => this.resize(cx), t, cx)))
         .when(this.wide, el => el.child(this.icon("close", () => closeOverlay(this.overlay), t, cx))))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
