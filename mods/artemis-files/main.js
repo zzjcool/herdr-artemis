@@ -406,7 +406,10 @@ export default class Files extends View {
         if (r > 0.2 && r < 1.6) d.sy = (d.sy ?? 1) * 0.55 + r * 0.45;
       }
     }
-    const box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y, d.sx ?? 1, d.sy ?? 1);
+    let box;
+    try {
+      box = this.resized(d.edge, d.w, d.h, position.x - d.x, position.y - d.y, d.sx ?? 1, d.sy ?? 1);
+    } catch { box = this.box; }
     if (at) d.seen = { x: at.x ?? d.seen?.x ?? 0, y: at.y ?? d.seen?.y ?? 0, w: this.box.w, h: this.box.h };
     if (box.w === this.box.w && box.h === this.box.h) return;
     d.moved = true;
@@ -428,6 +431,11 @@ export default class Files extends View {
 
   grip(edge, grow = false) {
     const down = (e, cx) => {
+      // Claimed before anything else can fail: the host drags the window by any press the
+      // mod does not stop, and a throw in here (a log write, a bad field) would hand the
+      // press back to it — measured, that turned a resize into the window following the
+      // pointer with its size untouched.
+      cx.stop_propagation();
       this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false };
       // Re-wrapping the page at every intermediate width is the one thing a drag cannot
       // afford: measured 56 ms per frame on a 73 KB document, against 18 ms for the same
@@ -436,7 +444,6 @@ export default class Files extends View {
       // release. The pointer still moves the edge frame by frame; the text follows at the
       // end, which is the difference between a smooth drag and a slideshow.
       this.freeze = this.innerSize ?? { w: Math.max(1, this.box.w - 12), h: Math.max(1, this.box.h - 28) };
-      cx.stop_propagation();
     };
     const horizontal = edge === "e" || edge === "w";
     const corner = edge.length === 2;
@@ -983,7 +990,11 @@ export default class Files extends View {
   // scaled here to fit the box the panel reports — and never enlarged past its own
   // pixels, so a 16 px icon does not become a blurred poster.
   picture() {
-    const box = this.box, { width: iw, height: ih } = this.image;
+    // `ibox`, never `box`: the window's own size lives in `this.box` ({w,h}) and this one is
+    // the area the picture is drawn in ({width,height}) — the same field for both meant that
+    // opening an image rewrote the window's size, and every drag after that fought a plate
+    // that had silently become an image's viewport.
+    const box = this.ibox, { width: iw, height: ih } = this.image;
     let w = box?.width ?? 0, h = box?.height ?? 0;
     if (iw && ih && box?.width && box?.height) {
       const scale = Math.min(box.width / iw, box.height / ih, 1);
@@ -992,8 +1003,8 @@ export default class Files extends View {
     }
     return h_flex().size_full().min_h(0).items_center().justify_center().overflow_hidden()
       .on_size_change((size, cx) => {
-        if (Math.abs((this.box?.width ?? 0) - size.width) < 1 && Math.abs((this.box?.height ?? 0) - size.height) < 1) return;
-        this.box = size;
+        if (Math.abs((this.ibox?.width ?? 0) - size.width) < 1 && Math.abs((this.ibox?.height ?? 0) - size.height) < 1) return;
+        this.ibox = size;
         this.touch(cx);
       })
       // Both numbers or neither: the elements take a length, and `undefined` is not one.
