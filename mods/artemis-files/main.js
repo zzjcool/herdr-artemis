@@ -403,6 +403,28 @@ export default class Files extends View {
     this.touch(cx);
   }
 
+  // The press is the last thing that has to be under the pointer. From then on the drag
+  // follows the *window's* mouse position, not a hovered element: `on_mouse_move` is only
+  // delivered while the pointer is over the element it belongs to, and this API has no
+  // capture, so a hand that outran the frame stopped producing events altogether and the
+  // drag sat still until the pointer came back. `window.mouse_position()` keeps being
+  // updated while a button is held — even outside the window — so it is polled for as long
+  // as the press lasts. It does not update on plain hovering, which is what makes this a
+  // drag and not a general pointer tracker.
+  pump(cx) {
+    if (!this.drag) return;
+    const m = window.mouse_position(), d = this.drag;
+    // A reading in another coordinate space would be a jump, not a movement: 200 px in
+    // 16 ms is 12 000 px/s, faster than a hand, so anything larger is ignored rather than
+    // allowed to fling the frame across the screen.
+    const near = Math.abs(m.x - d.px) <= 200 && Math.abs(m.y - d.py) <= 200;
+    if (near && (m.x !== d.px || m.y !== d.py)) {
+      d.px = m.x; d.py = m.y;
+      this.dragged(m, cx, "poll");
+    }
+    cx.timer.after(16, cx => this.pump(cx));
+  }
+
   endDrag(cx) {
     if (!this.drag) return;
     if (this.drag.moved) {
@@ -416,7 +438,8 @@ export default class Files extends View {
 
   grip(edge, grow = false) {
     const down = (e, cx) => {
-      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false, at: { x: e.position.x, y: e.position.y }, speed: 0 };
+      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h, moved: false, at: { x: e.position.x, y: e.position.y }, speed: 0, px: e.position.x, py: e.position.y };
+      this.pump(cx);
       // Re-wrapping the page at every intermediate width is the one thing a drag cannot
       // afford: measured 56 ms per frame on a 73 KB document, against 18 ms for the same
       // frame with the page held still. So the page keeps the size it had when the edge
