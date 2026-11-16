@@ -19,7 +19,7 @@
 
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { panes, props, run, theme, home, layout } from "herdr";
+import { panes, props, run, spaces, theme, home, layout } from "herdr";
 
 // Match the first visible tab frame, including the active child of a stack.
 function paneFrame(node) {
@@ -77,6 +77,8 @@ export default class Pane extends View {
     const pic = icon(p.program, 14, t.dim);
     const st = p.status;
     const pane = p.pane;
+    // Panes in this pane's tab: `TabInfo.panes`, not a count of `panes()`, which is per space.
+    const shared = spaces().flatMap((s) => s.tabs).find((tab) => tab.id === p.tab)?.panes ?? null;
     const frame = paneFrame(layout()) ?? {};
     const bottom = frame.header?.position === "bottom";
     // The band sits inside the frame's 1 px border, so its arc is one pixel tighter than
@@ -106,7 +108,11 @@ export default class Pane extends View {
       .when(this.hovered, el => el
         .child(this.button(t, `ph-r-${pane}`, "split-right", "pane.split", { direction: "right", pane }))
         .child(this.button(t, `ph-d-${pane}`, "split-down", "pane.split", { direction: "down", pane }))
-        .child(this.button(t, `ph-z-${pane}`, p.zoomed ? "unzoom" : "zoom", "pane.zoom", { pane }))
+        // A zoom hides the pane's siblings, so in a one-pane tab it hides nothing and the
+        // button is a dead control: measured, `pane.zoom` on a lone pane changes no pixel and
+        // the same command in a two-pane tab fills the stack with it. `null` (a tab this pane
+        // cannot be found in) keeps the button, because a wrong hide costs a control.
+        .when(shared === null || shared > 1 || p.zoomed, el => el.child(this.button(t, `ph-z-${pane}`, p.zoomed ? "unzoom" : "zoom", "pane.zoom", { pane })))
         .child(this.button(t, `ph-x-${pane}`, "close", "pane.close", { pane })));
   }
 }
