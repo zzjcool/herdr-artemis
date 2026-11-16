@@ -432,8 +432,13 @@ it.** So the reader accepts any info string (`js`, `js {1,3}`, `bash tab="macOS"
 keeps only the first word as the language, takes three or more backticks or tildes, requires the
 closing fence to be at least as long as the opening one and to carry nothing (which is what lets a
 document about markdown nest its own fences), and normalises `\r\n` on the way in, since a CRLF
-file otherwise fails every fence test at once. Fences inside a blockquote (`> \`\`\``) stay prose;
-the reader does not strip the `>`.
+file otherwise fails every fence test at once. A fence inside a blockquote (`> \`\`\`sh`) is lifted
+out whole: its opening line, every content line and its closing line all carry the same quote prefix,
+so the prefix is the key — the block leaves with that prefix stripped, the quote's prose stays for the
+host to draw with its own bar, and the sheet is indented and labelled `> sh` (or `> > py` for a nested
+quote), because what a reader loses when a block leaves a quote is that it was in one. A quote that
+ends before its closing fence does is left as prose rather than guessed at, which is the same rule as
+the fence reader: never consume a block you cannot close.
 
 Past sixty fences the page goes back to the host's renderer in one piece, because every fence is a
 retained editor built in one pass. Measured, that costs only colours: `TextView.markdown` already

@@ -57,7 +57,9 @@ export function blocks(text) {
   const flush = () => { if (prose.length) { out.push({ kind: "md", text: prose.join("\n") }); prose.length = 0; } };
   // A CRLF file otherwise fails every fence test — a host that hands over `\r\n`
   // would turn the whole document into one code block, or none at all.
-  for (const line of String(text).replace(/\r\n?/g, "\n").split("\n")) {
+  const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (code) {
       // The closing fence must be at least as long as the opening one and carry no
       // info string; anything else is content (which is what lets a document about
@@ -77,6 +79,28 @@ export function blocks(text) {
       flush();
       code = { fence: open[1], lang: language(open[2]), lines: [] };
       continue;
+    }
+    // A fence inside a blockquote. `> \`\`\`sh` is not a fence to a reader that only
+    // looks at the start of the line, so the block stayed grey — but its content lines
+    // all carry the same `> ` and so does its closing line, which is enough to lift the
+    // whole block out and leave the quote's prose to the host. A quote that ends before
+    // its fence does is left alone rather than guessed at.
+    const quoted = /^([ \t]{0,3}(?:>[ \t]?)+)(`{3,}|~{3,})[ \t]*(.*)$/.exec(line);
+    if (quoted && !(quoted[2][0] === "`" && quoted[3].includes("`"))) {
+      const prefix = quoted[1], fence = quoted[2], body = [];
+      let j = i + 1, closed = false;
+      for (; j < lines.length; j++) {
+        const close = /^([ \t]{0,3}(?:>[ \t]?)+)(`{3,}|~{3,})[ \t]*$/.exec(lines[j]);
+        if (close && close[1] === prefix && close[2][0] === fence[0] && close[2].length >= fence.length) { closed = true; break; }
+        if (!lines[j].startsWith(prefix)) break;
+        body.push(lines[j].slice(prefix.length));
+      }
+      if (closed) {
+        flush();
+        out.push({ kind: "code", lang: language(quoted[3]), text: body.join("\n"), quote: prefix.trim() });
+        i = j;
+        continue;
+      }
     }
     // A picture alone on a line: the host would draw it broken, because `TextView`
     // resolves `![](...)` against Herdr's folder rather than against the document.
@@ -347,16 +371,19 @@ export default class Files extends View {
   // corner and a real editor inside, so the colours are the ones a `.py` file gets.
   codeBlock(block, index) {
     const t = theme(), size = 11.5;
-    const width = Math.max(160, (this.mdBox ?? 300) - 24);
+    const width = Math.max(160, (this.mdBox ?? 300) - 24 - (block.quote ? 8 : 0));
     const perLine = Math.max(24, Math.floor((width - 16) / (size * 0.6)));
     const visual = block.text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(columns(line) / perLine)), 0);
     // The editor will not size itself (measured: no height draws two lines), so the
     // block is measured here — wrapped lines counted at 0.6 em per character in the
     // mono face — with a line of slack so the last line is never clipped.
     const height = Math.round((visual + 0.35) * size * 1.55) + 6;
+    // A sheet lifted out of a quote is indented and says so in its corner, because the
+    // one thing a reader loses when a block leaves the quote is that it was in one.
     return v_flex().id(`files-code-${index}`).flex_none().mb(10).rounded(6).border_1().border_color(t.border).overflow_hidden()
+      .when(Boolean(block.quote), el => el.ml(8))
       .child(h_flex().flex_none().px(8).pt(5).pb(1).justify_end()
-        .child(div().text_size(9.5).text_color(t.dim).child(block.lang)))
+        .child(div().text_size(9.5).text_color(t.dim).child(`${block.quote ? `${block.quote} ` : ""}${block.lang}`)))
       .child(div().flex_none().px(2).child(Editor.new(block.state).flex_none().h(height)));
   }
 
