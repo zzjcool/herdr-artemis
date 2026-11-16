@@ -603,6 +603,15 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **Deleting a feature is not done until nothing points at it.** Removing the two-size toggle took the
+  icons, the state and the method, and left one header line behind:
+  `.when(this.wide, ... icon(this.big ? "restore" : "maximize", () => this.resize(cx)))`. A window then
+  drew an empty 24 px button, logged `asset mods/artemis-files/maximize.svg was not found` on every
+  frame, and would have thrown on a click. `grep` the removed names before considering it deleted.
+- **The log of a second instance is where dead code shows up.** That line was found in
+  `HERDR_APP_HOME` lab's output, not in a screenshot: a screenshot shows a missing icon as *nothing*,
+  and nothing looks like correct. Read the instance's stdout too — a `was not found`, a silent
+  `TypeError` from a timer, a warning about an asset no longer in the folder.
 - **A content-sized overlay is resized by its content, and it stays centred.** That is the whole trick
   behind a draggable window edge on a host with no resize handle, but the centring halves every edge
   movement: the box has to change by twice the pointer's delta. Measured, not assumed — the edge moved
