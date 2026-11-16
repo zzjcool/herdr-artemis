@@ -263,6 +263,9 @@ export default class Files extends View {
     // request `popout()` leaves behind. Long enough after `init` for `props()` to be
     // filled — it is empty here, which cost a session once.
     this.wide = false; this.overlay = null;
+    // A window is wide enough that a line can be too long to read; the icon in its header
+    // keeps the column to 760 px instead. Remembered, like the rendered/source choice.
+    this.narrow = shared("artemis-files.narrow") === true;
     cx.timer.after(120, cx => this.adopt(cx));
   }
 
@@ -272,6 +275,10 @@ export default class Files extends View {
     const spec = props();
     if (!spec?.overlay) return;
     this.wide = true; this.overlay = spec.overlay;
+    // The window does not take the keyboard by itself (the host says so), and Esc is a key:
+    // the view asks for it, or the close key would only work after a click.
+    this.handle = cx.focus_handle();
+    this.handle.focus();
     const request = shared("artemis-files.window");
     if (request?.file && Date.now() - (request.at ?? 0) < PICKUP) {
       this.windowAt = request.at ?? 0;
@@ -437,7 +444,7 @@ export default class Files extends View {
   // A picture inside a document, drawn at the width it has room for and never past
   // its own pixels; a tall one is capped and scaled to keep its shape.
   imageBlock(block) {
-    const t = theme(), width = Math.max(80, (this.mdBox ?? 320) - 20);
+    const t = theme(), width = Math.max(80, this.column() - 20);
     const note = (text) => div().flex_none().mb(10).py(8).px(10).rounded(6).border_1().border_color(t.border)
       .text_size(11).text_color(t.dim).child(text);
     if (block.linked) return note(`${block.alt || "image"} · ${block.src} (remote pictures are not fetched)`);
@@ -494,7 +501,7 @@ export default class Files extends View {
   // corner and a real editor inside, so the colours are the ones a `.py` file gets.
   codeBlock(block, index) {
     const t = theme(), size = this.wide ? 12.5 : 11.5;
-    const width = Math.max(160, (this.mdBox ?? 300) - 24 - (block.quote ? 8 : 0));
+    const width = Math.max(160, this.column() - 24 - (block.quote ? 8 : 0));
     const perLine = Math.max(24, Math.floor((width - 16) / (size * 0.6)));
     const visual = block.text.split("\n").reduce((n, line) => n + Math.max(1, Math.ceil(columns(line) / perLine)), 0);
     // The editor will not size itself (measured: no height draws two lines), so the
@@ -531,6 +538,35 @@ export default class Files extends View {
   }
 
   // Two chips, drawn the way a selected row is: the fill says which one you are looking at.
+  // An icon button in the header: `svg` is a mask, so the icon follows the theme by
+  // `text_color` and needs nothing but its own file.
+  icon(name, on, t, cx, active = false) {
+    return h_flex().id(`files-icon-${name}`).h(21).w(24).flex_none().justify_center().items_center().rounded(5).cursor_pointer()
+      .text_color(active ? t.foreground : t.dim)
+      .when(active, el => el.bg(t.selected))
+      .when(!active, el => el.hover(s => s.bg(t.hover)))
+      .on_click((_e, cx) => on(cx))
+      .child(svg(`mods/artemis-files/${name}.svg`).size(13).flex_none());
+  }
+
+  // The width the page is set to: the panel's own, or a 760 px column in a window when the
+  // reader asked for one. It is padding, not `max_w` — measured, `max_w` on a `flex_1`
+  // child did nothing and the column stayed as wide as the window.
+  column() {
+    const box = this.mdBox ?? 320;
+    return this.wide && this.narrow ? Math.min(box, 760) : box;
+  }
+
+  gutter() {
+    return Math.max(0, Math.round(((this.mdBox ?? 0) - this.column()) / 2));
+  }
+
+  toggleNarrow(cx) {
+    this.narrow = !this.narrow;
+    setShared("artemis-files.narrow", this.narrow);
+    cx.notify();
+  }
+
   chip(label, mode, t, cx) {
     const on = this.mdMode === mode;
     return h_flex().id(`files-mode-${mode}`).h(21).px(8).rounded(5).flex_none().items_center().cursor_pointer().text_size(11)
@@ -870,6 +906,10 @@ export default class Files extends View {
     // A window has room, so the page is set a little larger there.
     const prose = this.wide ? 14 : 12.5;
     return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
+      // Esc closes the window. It only arrives on the focus path, so the view asks for the
+      // keyboard when it opens as a window and tracks that handle here.
+      .when(this.wide && Boolean(this.handle), el => el.track_focus(this.handle)
+        .on_key_down((e, cx) => { if (e.key === "escape") { closeOverlay(this.overlay); cx.stop_propagation(); } }))
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .when(Boolean(this.file) && !this.wide, el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted)
           .on_click((_e, cx) => { this.show(this.trail.pop() ?? null, cx); cx.notify(); }).child("←")))
@@ -878,12 +918,10 @@ export default class Files extends View {
           h_flex().flex_none().ml(6).gap(2).p(2).rounded(7)
             .child(this.chip("Rendered", "rendered", t, cx))
             .child(this.chip("Source", "source", t, cx))))
-        .when(Boolean(this.file) && !this.wide, el => el.child(h_flex().id("files-popout").flex_none().h(21).px(8).rounded(5).items_center()
-          .cursor_pointer().text_size(11).text_color(t.dim).hover(s => s.bg(t.hover))
-          .on_click((_e, cx) => this.popout(cx)).child("Wide")))
-        .when(this.wide, el => el.child(h_flex().id("files-close").flex_none().h(21).px(8).rounded(5).items_center()
-          .cursor_pointer().text_size(11).text_color(t.dim).hover(s => s.bg(t.hover))
-          .on_click(() => closeOverlay(this.overlay)).child("Close")))
+        .when(Boolean(this.file) && !this.wide, el => el.child(this.icon("expand", cx => this.popout(cx), t, cx)))
+        // In a window: the column width, then the way out.
+        .when(this.wide, el => el.child(this.icon(this.narrow ? "grow" : "shrink", cx => this.toggleNarrow(cx), t, cx, this.narrow)))
+        .when(this.wide, el => el.child(this.icon("close", () => closeOverlay(this.overlay), t, cx)))
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? "")))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
@@ -892,9 +930,10 @@ export default class Files extends View {
       // More fences than the editor budget allows: one renderer for the whole page,
       // colours and all the words.
       .when(this.markdown !== null && this.mdMode === "rendered" && !this.blocks, el => el.child(div().id("files-md").flex_1().min_h(0).text_size(prose)
+        .px(10 + this.gutter())
         .child(TextView.markdown(`files-md-all-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
       .when(this.markdown !== null && this.mdMode === "rendered" && Boolean(this.blocks), el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(prose)
-        .overflow_y_scrollbar().p(10)
+        .overflow_y_scrollbar().py(10).px(10 + this.gutter())
         .on_size_change((size, cx) => {
           if (Math.abs((this.mdBox ?? 0) - size.width) < 1) return;
           this.mdBox = size.width;
