@@ -366,11 +366,19 @@ export default class Files extends View {
   grip(edge) {
     const down = (e, cx) => {
       this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h };
+      // Re-wrapping the page at every intermediate width is the one thing a drag cannot
+      // afford: measured 56 ms per frame on a 73 KB document, against 18 ms for the same
+      // frame with the page held still. So the page keeps the size it had when the edge
+      // was taken — drawn clipped to the new frame — and takes the new width once, on
+      // release. The pointer still moves the edge frame by frame; the text follows at the
+      // end, which is the difference between a smooth drag and a slideshow.
+      this.freeze = this.innerSize ?? { w: Math.max(1, this.box.w - 12), h: Math.max(1, this.box.h - 54) };
       cx.stop_propagation();
     };
     const move = (e, cx) => {
       const d = this.drag;
-      if (!d || d.edge !== edge) return;
+      if (!d) { if (this.freeze) { this.freeze = null; this.touch(cx); } return; }
+      if (d.edge !== edge) return;
       const box = this.resized(edge, d.w, d.h, e.position.x - d.x, e.position.y - d.y);
       if (box.w === this.box.w && box.h === this.box.h) return;
       this.box = box;
@@ -1009,6 +1017,9 @@ export default class Files extends View {
       .when(Boolean(this.status), el => el.child(h_flex().flex_none().px(12).py(7).items_center().border_t(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(this.status.tone === "error" ? t.blocked : this.status.tone === "done" ? t.ansi2 : t.dim).child(this.status.text))));
     if (!this.wide) return inner;
+    // A drag whose release lands outside the window never reaches `on_mouse_up`, so the
+    // freeze is honoured only while the press is still held: `drag` is what heals it.
+    const frozen = this.freeze && this.drag ? this.freeze : null;
     // The window is its own box: the host sizes an overlay to its content, so the number
     // in `this.box` is the window's size, and these grips are its edges. The left and top
     // edges are not here — growing that way would need the window to move, which an open
@@ -1018,11 +1029,21 @@ export default class Files extends View {
     // `solid` is the token that means an opaque surface.
     return v_flex().id("files-window").w(this.box.w).h(this.box.h)
       .rounded(10).overflow_hidden().bg(t.solid).border_1().border_color(t.border)
-      .on_mouse_up("left", (_e, _cx) => { if (this.drag) { setShared("artemis-files.windowBox", this.box); this.drag = null; } })
+      .on_mouse_up("left", (_e, cx) => {
+        if (!this.drag) return;
+        setShared("artemis-files.windowBox", this.box);
+        this.drag = null;
+        // The one re-wrap, at the size the drag ended on.
+        this.freeze = null;
+        this.touch(cx);
+      })
       .child(this.grip("n"))
       .child(h_flex().flex_1().min_h(0).items_stretch()
         .child(this.grip("w"))
-        .child(inner.flex_1().min_w(0).h_full())
+        .child(frozen
+          ? div().flex_none().w(frozen.w).h(frozen.h).overflow_hidden().child(inner.size_full())
+          : inner.flex_1().min_w(0).h_full()
+            .on_size_change((size, _cx) => { this.innerSize = { w: size.width, h: size.height }; }))
         .child(this.grip("e")))
       .child(this.grip("s"));
   }

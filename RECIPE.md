@@ -456,6 +456,15 @@ runtime (a box grown by 240 px drew 240 px wider), and it stays **centred**, so 
 pointer instead of half of it. The size is remembered in `setShared("artemis-files.windowBox")` on
 release.
 
+A drag must not re-wrap the page. Measured on a 73 KB document, one frame that changes the width costs
+**56 ms** against **18 ms** for the same frame with the page held still — the host re-wraps every block,
+every `TextView` and every `Editor`, and no amount of JavaScript economy touches that cost: the mod's half
+of the frame was 1 ms in both cases. So the press freezes the page at the size it already had (the
+measured inner size), the frame follows the pointer around it — content clipped, blank band where the
+frame grew — and the page takes the new width **once**, on release, as one 56 ms hiccup instead of a drag
+at 17 fps. The freeze is honoured only while the press is held (`freeze && drag`), because a release
+outside the window never arrives and would otherwise leave the page stuck at the old width.
+
 One thing had to move earlier than expected for this: the copy that becomes a window must know that
 *before its first frame*, because the size an overlay takes at birth is the size it keeps. `props()` is
 empty in `init`, so `init` reads the request the button left in shared state instead, and the request
