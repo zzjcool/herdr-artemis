@@ -6,7 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
-import { spaces, panes, focused, appHome, closeOverlay, exec, hc, home, notify, openOverlay, props, readTextFile, setShared, shared, watchFolder, theme, settings, window } from "herdr";
+import { spaces, panes, focused, appHome, closeOverlay, exec, hc, home, notify, openOverlay, props, readTextFile, setShared, shared, watchFolder, theme, settings, window as host } from "herdr";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -21,6 +21,8 @@ const DOWNLOADS = "Downloads", PICKUP = 15000, SHOWN = 9000, SSH_TIMEOUT = 59000
 // herdr-core's channel carries text and stops at 8 MiB; base64 grows a file by a third,
 // so a little over 5 MB of picture is what fits through it.
 const CORE_MAX = 5 * 1024 * 1024;
+// A window narrower than this is the sidebar again, which is what the window is for.
+const MIN_W = 420, MIN_H = 320;
 
 // `on` names a machine the way herdr-core does, and ssh needs that machine's `target`,
 // which is a different string (`nj-host` is reached as `nj-host-ts`). A target is an
@@ -232,7 +234,7 @@ async function directory(path, on) {
     const result = JSON.parse(r.stdout || "[]");
     return Array.isArray(result) ? result : [result];
   };
-  if (!on && window()?.platform === "windows") return windowsDirectory();
+  if (!on && host()?.platform === "windows") return windowsDirectory();
   const script = 'n=0; for p in "$1"/* "$1"/.[!.]* "$1"/..?*; do [ -e "$p" ] || [ -L "$p" ] || continue; name=${p##*/}; [ "$name" = .git ] && continue; if [ -d "$p" ]; then kind=d; else kind=f; fi; printf "%s\\0%s\\0" "$kind" "$name"; n=$((n+1)); [ "$n" -gt 500 ] && break; done; test -d "$1"';
   let r;
   try { r = await exec("sh", ["-c", script, "files", path], { on }); }
@@ -263,6 +265,23 @@ export default class Files extends View {
     // request `popout()` leaves behind. Long enough after `init` for `props()` to be
     // filled — it is empty here, which cost a session once.
     this.wide = false; this.overlay = null;
+    // A window overlay is as big as its content, and the size it takes at birth is the one it
+    // keeps. So the copy that is a window has to know that *before its first frame* — not
+    // from `props()`, which is empty in `init`, but from the request the button left behind.
+    // The request carries `taken` once a window has read it, so a panel that is rebuilt later
+    // does not mistake an old request for a new window.
+    const request = shared("artemis-files.window");
+    if (request?.file && !request.taken && Date.now() - (request.at ?? 0) < PICKUP) {
+      this.wide = true; this.windowAt = request.at ?? 0;
+      this.root = request.root ?? null; this.on = request.on ?? null;
+      this.box = this.size();
+      this.context = { key: "window", cwd: this.root, on: this.on };
+      this.show(request.file, cx);
+    }
+    // The host hands a window overlay to its content: "as big as its content unless
+    // width/height". So the size lives here, in pixels, and the edges are grabbable —
+    // the host draws no resize handle of its own.
+    this.box = null;
     cx.timer.after(120, cx => this.adopt(cx));
   }
 
@@ -271,18 +290,22 @@ export default class Files extends View {
   adopt(cx) {
     const spec = props();
     if (!spec?.overlay) return;
-    this.wide = true; this.overlay = spec.overlay;
+    this.wide = true; this.overlay = spec.overlay; this.box = this.size();
     // The window does not take the keyboard by itself (the host says so), and Esc is a key:
     // the view asks for it, or the close key would only work after a click.
     this.handle = cx.focus_handle();
     this.handle.focus();
     const request = shared("artemis-files.window");
-    if (request?.file && Date.now() - (request.at ?? 0) < PICKUP) {
-      this.windowAt = request.at ?? 0;
-      this.root = request.root ?? null; this.on = request.on ?? null;
-      this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
-      this.show(request.file, cx);
+    if (request?.file) {
+      setShared("artemis-files.window", { ...request, taken: true });
+      if (this.file !== request.file) {
+        this.windowAt = request.at ?? 0;
+        this.root = request.root ?? null; this.on = request.on ?? null;
+        this.context = { key: `window:${this.overlay}`, cwd: this.root, on: this.on };
+        this.show(request.file, cx);
+      }
     }
+    if (!this.box) this.box = this.size();
     // Whether the host replaced the window or handed the same one this request, the
     // second file opened from the sidebar has to arrive: the request is newer than the
     // one this copy took, so it is picked up here.
@@ -305,8 +328,60 @@ export default class Files extends View {
   // one already open instead of stacking a second.
   popout(cx) {
     if (!this.file) return;
-    setShared("artemis-files.window", { file: this.file, root: this.root, on: this.on, at: Date.now() });
-    openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview", width: 0.62, height: 0.82 });
+    setShared("artemis-files.window", { file: this.file, root: this.root, on: this.on, at: Date.now(), taken: false });
+    // No width/height: the overlay takes the size of what it shows, and what it shows is
+    // this mod — which is how the edges can be dragged at all.
+    openOverlay({ mod: "artemis-files", kind: "window", key: "files-preview", frame: "none" });
+  }
+
+  // The window's size, in pixels: what it was last dragged to, else most of the screen.
+  size() {
+    const view = window.viewport_size();
+    const saved = shared("artemis-files.windowBox");
+    return {
+      w: Math.max(MIN_W, Math.min(view.width - 24, Math.round(saved?.w ?? view.width * 0.62))),
+      h: Math.max(MIN_H, Math.min(view.height - 24, Math.round(saved?.h ?? view.height * 0.82))),
+    };
+  }
+
+  // A 6 px strip on the right edge and on the bottom edge, plus the corner: press, drag,
+  // and the box follows the pointer. Presses are stopped so the window itself does not
+  // move instead — the host drags a window by any press the mod does not claim.
+  // The resize arithmetic, apart from the event so it can be measured on its own. The
+  // overlay is centred by the host, so growing the content by `d` moves each edge by `d/2`:
+  // the factor of two is what makes the edge follow the pointer instead of half of it.
+  resized(edge, w0, h0, dx, dy) {
+    const view = window.viewport_size();
+    let w = w0, h = h0;
+    if (edge.includes("e")) w += 2 * dx;
+    if (edge.includes("w")) w -= 2 * dx;
+    if (edge.includes("s")) h += 2 * dy;
+    if (edge.includes("n")) h -= 2 * dy;
+    return {
+      w: Math.round(Math.max(MIN_W, Math.min(view.width - 24, w))),
+      h: Math.round(Math.max(MIN_H, Math.min(view.height - 24, h))),
+    };
+  }
+
+  grip(edge) {
+    const down = (e, cx) => {
+      this.drag = { edge, x: e.position.x, y: e.position.y, w: this.box.w, h: this.box.h };
+      cx.stop_propagation();
+    };
+    const move = (e, cx) => {
+      const d = this.drag;
+      if (!d || d.edge !== edge) return;
+      const box = this.resized(edge, d.w, d.h, e.position.x - d.x, e.position.y - d.y);
+      if (box.w === this.box.w && box.h === this.box.h) return;
+      this.box = box;
+      this.touch(cx);
+    };
+    const ew = edge === "e" || edge === "w";
+    return div().id(`files-grip-${edge}`).flex_none()
+      .when(ew, el => el.w(6).h_full().cursor_ew_resize())
+      .when(!ew, el => el.h(6).w_full().cursor_ns_resize())
+      .on_mouse_down("left", down)
+      .on_mouse_move(move);
   }
 
   watch(root, cx) {
@@ -880,10 +955,14 @@ export default class Files extends View {
 
   render(cx) {
     if (!this.wide && key() !== this.context?.key) this.refresh(cx);
+    if (this.wide && !this.box) this.box = this.size();
     const t = theme();
     // A window has room, so the page is set a little larger there.
     const prose = this.wide ? 14 : 12.5;
-    return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
+    // In a window the box and its frame belong to the wrapper, so the 6 px grips sit
+    // inside the rounded rect rather than beside it.
+    const inner = v_flex().id("files").min_h(0).overflow_hidden().text_color(t.foreground).text_size(13)
+      .when(!this.wide, el => el.size_full().rounded(10).border_1().border_color(t.border).bg(t.background))
       // Esc closes the window. It only arrives on the focus path, so the view asks for the
       // keyboard when it opens as a window and tracks that handle here.
       .when(this.wide && Boolean(this.handle), el => el.track_focus(this.handle)
@@ -899,6 +978,7 @@ export default class Files extends View {
         .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? ""))
         // The way out sits in the corner it sits in everywhere else.
         .when(Boolean(this.file) && !this.wide, el => el.child(this.icon("expand", cx => this.popout(cx), t, cx)))
+        .when(this.wide, el => el.child(this.icon(this.big ? "restore" : "maximize", cx => this.resize(cx), t, cx)))
         .when(this.wide, el => el.child(this.icon("close", () => closeOverlay(this.overlay), t, cx))))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
@@ -929,5 +1009,19 @@ export default class Files extends View {
         el => el.child(div().p(12).text_size(12).text_color(t.dim).child(this.fileError || "Loading file…")))
       .when(Boolean(this.status), el => el.child(h_flex().flex_none().px(12).py(7).items_center().border_t(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().text_size(11).text_color(this.status.tone === "error" ? t.blocked : this.status.tone === "done" ? t.ansi2 : t.dim).child(this.status.text))));
+    if (!this.wide) return inner;
+    // The window is its own box: the host sizes an overlay to its content, so the number
+    // in `this.box` is the window's size, and these grips are its edges. The left and top
+    // edges are not here — growing that way would need the window to move, which an open
+    // overlay cannot be asked to do.
+    return v_flex().id("files-window").w(this.box.w).h(this.box.h)
+      .rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border)
+      .on_mouse_up("left", (_e, _cx) => { if (this.drag) { setShared("artemis-files.windowBox", this.box); this.drag = null; } })
+      .child(this.grip("n"))
+      .child(h_flex().flex_1().min_h(0).items_stretch()
+        .child(this.grip("w"))
+        .child(inner.flex_1().min_w(0).h_full())
+        .child(this.grip("e")))
+      .child(this.grip("s"));
   }
 }

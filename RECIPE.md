@@ -432,12 +432,28 @@ and the file cannot ride in the overlay's props, so the button leaves a request 
 constant on purpose: opening Wide again replaces the window where it was dropped instead of stacking
 a second one, and a 600 ms `pickup()` lets that same window follow a second file from the sidebar.
 The header's buttons became icons once the window existed — `expand` opens it, `close` is the way out —
-because three of them sat in a 330 px header where a word per button is a third of the row. The page in
-a window is the window's full width: a two-step padding toggle was tried and dropped, since it changed
-only the margins. `close` sits after the filename, in the corner it sits in everywhere else. Esc closes
-the window too, which needs something the host does not do by itself — a window "does not take the
-keyboard when it opens", so the view asks for a focus handle and `track_focus`es it, and only then does
-`on_key_down` on the root see the escape.
+because three of them sat in a 330 px header where a word per button is a third of the row; `close` sits
+after the filename, in the corner it sits in everywhere else. Esc closes the window too, which needs
+something the host does not do by itself — a window "does not take the keyboard when it opens", so the
+view asks for a focus handle and `track_focus`es it, and only then does `on_key_down` on the root see the
+escape.
+
+The window is **resizable by its edges**, and the whole mechanism is worth writing down because the host
+draws no resize handle and offers no API to resize an open overlay. What it does offer is the sentence
+"as big as its content unless width/height": so the overlay is opened with **no** width or height, and
+the content is the size — `this.box`, in pixels, written by a 6 px strip on each edge that reports
+`cursor_ew_resize` / `cursor_ns_resize`, presses with `on_mouse_down("left")` (stopping propagation, or
+the window would move instead — the host drags a window by any press the mod does not claim), and
+resizes on `on_mouse_move`. Two measured details make it work: the overlay **follows its content** at
+runtime (a box grown by 240 px drew 240 px wider), and it stays **centred**, so growing the content by
+`d` moves each edge by only `d/2` — the factor of two in `resized()` is what makes the edge follow the
+pointer instead of half of it. The size is remembered in `setShared("artemis-files.windowBox")` on
+release.
+
+One thing had to move earlier than expected for this: the copy that becomes a window must know that
+*before its first frame*, because the size an overlay takes at birth is the size it keeps. `props()` is
+empty in `init`, so `init` reads the request the button left in shared state instead, and the request
+carries `taken` so a panel rebuilt later does not mistake an old request for a new window.
 
 **Rendered** is not one `TextView`: the document is cut at its code fences, because the host's
 renderer cannot colour a fence and a mod should not re-invent headings, lists, tables, quotes and
@@ -587,6 +603,10 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
 
 ## Watch out
 
+- **A content-sized overlay is resized by its content, and it stays centred.** That is the whole trick
+  behind a draggable window edge on a host with no resize handle, but the centring halves every edge
+  movement: the box has to change by twice the pointer's delta. Measured, not assumed — the edge moved
+  120 px for a 240 px growth.
 - **A window does not take the keyboard, so a key cannot reach it by itself.** `on_key_down` on the root
   hears nothing until the view asks for a focus handle when the window opens and `track_focus`es it:
   the keyboard is somewhere else, and a key travels the focus path. Measured on Esc, which is the one
