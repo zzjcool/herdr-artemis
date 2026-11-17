@@ -66,7 +66,8 @@ and the corona read straight through the text.
 - no mod binds a key or touches the network: the mark at the left of the status bar opens the app's
   settings on a click; the pane header (`artemis-pane`), the tab strip
   (`artemis-tabs`), the status bar's left half (`artemis-workspace-status`) and the space list
-  (`artemis-spaces`) are the shipped mods with the one thing changed that they needed here (§
+  (`artemis-spaces`), and the right-click menu (`artemis-menu`, direction-aware split and a zoom
+  arrow instead of an empty box) are the shipped mods with the one thing changed that they needed here (§
   *Watch out* in the recipe); none of them, nor the monitor, touches the network.
 
 **Install.** Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`

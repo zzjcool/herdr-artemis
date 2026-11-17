@@ -320,6 +320,7 @@ mods/artemis-agents/          main.js, mod.json {"place":"none","title":"Agents"
 mods/artemis-files/           main.js, preview.js, mod.json {"place":"none"},
                               file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
+mods/artemis-menu/            main.js, mod.json {"place":"none","title":"Artemis menu"} + 10 svg
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
 
@@ -450,6 +451,19 @@ from: 0.5, to: 1, period: 2400 })`, the same numbers the bar uses while an agent
 two shots 1.2 s apart: the working ring's mean brightness went 42.6 → 61.8 and 36.2 → 52.3, an idle
 ring 34.8 → 34.8, and two frames are enough because 1.2 s is half of the 2.4 s period. Idle stays a
 ring and done a dot, as shipped.
+
+**`mods/artemis-menu`** is the shipped `menu` — the terminal/pane right-click menu — with the icon
+map replaced. The shipped `menuIcon()` points `pane.split` at `workspace-chrome/panel-right.svg` for
+**both** directions and `pane.zoom` at `workspace-chrome/square.svg`, a file whose only element is a
+`<rect>`: so "Split down" drew a vertical divider and "Zoom" drew an empty box. Measured in the app's
+own renderer, side by side with the old files: the old zoom is a bare rectangle, the new
+`split-right`/`split-down` differ by the divider's axis and `zoom`/`unzoom` are the pane header's four
+corner arrows. `menuIcon()` now takes the whole item — the direction is in `args.direction`, and the
+zoom row's state comes from `panes()`, because the command's args carry the pane and not whether it is
+zoomed. The ten icons are copied into the mod's own folder (the pane header's five, at its 16 px
+grid, plus the five other commands use) so the fork does not depend on another mod's files, and the
+layout's root names it: `"terminal_menu": "artemis-menu"` — without that field the shipped `menu`
+applies, and unknown names fall back to it.
 
 **`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A **preview** of the clicked row is the panel's other half: an **image** is copied into Herdr's
 own folder and drawn, **markdown** is rendered by `TextView.markdown`, and everything else stays the
@@ -655,7 +669,8 @@ copy of one name landing beside the first (`PI-SYNC-MANIFEST (2).md`) with the f
 glyph, below), `tabs` → `mods/artemis-tabs` and
 `workspace-status` → `mods/artemis-workspace-status` (a 1 px edge rule that would square a plate's
 corner, see *Watch out*), `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine),
-`files` → `mods/artemis-files` (right-click download). Everything else is used as shipped. Nothing needs
+`files` → `mods/artemis-files` (right-click download), `menu` → `mods/artemis-menu` (the pane
+menu's icons, below). Everything else is used as shipped. Nothing needs
 `keys.json`, `programs.json`, `settings.json` or a theme file:
 the look is all in the layout's root.
 

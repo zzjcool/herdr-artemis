@@ -248,5 +248,6 @@
         }
       ]
     }
-  ]
+  ],
+  "terminal_menu": "artemis-menu"
 }
