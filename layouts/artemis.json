@@ -105,7 +105,7 @@
               },
               "min": 90,
               "content": {
-                "mod": "agents"
+                "mod": "artemis-agents"
               }
             }
           ],

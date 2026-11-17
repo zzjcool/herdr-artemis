@@ -297,6 +297,7 @@ mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis
                               win-close/max/min/restore.svg (Windows buttons)
 mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
 mods/artemis-spaces/          main.js, mod.json {"place":"none","title":"Artemis spaces"}
+mods/artemis-agents/          main.js, mod.json {"place":"none","title":"Agents"}
 mods/artemis-files/           main.js, preview.js, mod.json {"place":"none"},
                               file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
@@ -315,7 +316,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 │ ├ sidebar   column 292  min 220  max 420  radius 14
 │ │ │                    background "#070b1240"  border {1,"#ffffff1f"}
 │ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill)
-│ │ └ agents  block weight 1  min 90  mod agents   (no fill)
+│ │ └ agents  block weight 1  min 90  mod artemis-agents  (no fill)
 │ └ work      column gap 10  resizable false
 │   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
 │   │                    border {1,"#ffffff1f"}  mod artemis-tabs
@@ -411,6 +412,15 @@ unsampled host gets no line rather than an empty one. It is indented `pl(8)`, wh
 same pixel as the machine header's icon — measured at x = 64 in a 2× shot for both — and skipped when the rail is
 narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
 are the shipped mod unchanged.
+
+**`mods/artemis-agents`** (no `props`) is the shipped `agents` with one method: `status()` draws a
+**ring** for an agent that is working instead of the shipped arc, which mirrors the state by
+spinning. The ring is the bar's logo (`eclipse()`) at list size — two concentric 1 px borders, the
+outer at `${color}38`, around an opaque `#05080c` core — and it **breathes**: `loop("opacity", {
+from: 0.5, to: 1, period: 2400 })`, the same numbers the bar uses while an agent works. Measured in
+two shots 1.2 s apart: the working ring's mean brightness went 42.6 → 61.8 and 36.2 → 52.3, an idle
+ring 34.8 → 34.8, and two frames are enough because 1.2 s is half of the 2.4 s period. Idle stays a
+ring and done a dot, as shipped.
 
 **`mods/artemis-files`** (no `props`) is the shipped `files` with a right-click. A **preview** of the clicked row is the panel's other half: an **image** is copied into Herdr's
 own folder and drawn, **markdown** is rendered by `TextView.markdown`, and everything else stays the
@@ -611,8 +621,9 @@ a remote folder (`scp -r`, `/root/attic`), a local file, and — after the `.par
 copy of one name landing beside the first (`PI-SYNC-MANIFEST (2).md`) with the first untouched, no
 `.part` left behind, and shared state reading `at: 0`. `errors: []` throughout.
 
-**Shipped mods used:** `agents`, `changes`, and five the layout shows through a fork —
-`pane` → `mods/artemis-pane` (the band's corner), `tabs` → `mods/artemis-tabs` and
+**Shipped mods used:** `changes`, and six the layout shows through a fork —
+`pane` → `mods/artemis-pane` (the band's corner), `agents` → `mods/artemis-agents` (the working
+glyph, below), `tabs` → `mods/artemis-tabs` and
 `workspace-status` → `mods/artemis-workspace-status` (a 1 px edge rule that would square a plate's
 corner, see *Watch out*), `spaces` → `mods/artemis-spaces` (one `stats()` line under each machine),
 `files` → `mods/artemis-files` (right-click download). Everything else is used as shipped. Nothing needs
