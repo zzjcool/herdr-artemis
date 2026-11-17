@@ -46,7 +46,7 @@ export default class Tabs extends View {
     localStorage.setItem("panels", JSON.stringify(this.panels));
   }
 
-  // The Artemis ring, breathing — the bar's `eclipse()` at 12 px, and the same glyph the
+  // The Artemis ring, breathing — the bar's `eclipse()` at 12 px and in its colour, and the same glyph the
   // agent list uses. Same footprint as the spinner it replaces (12 px, `flex_none`, no
   // margin), so no row moves; `loop` runs natively and only while drawn, so the tab strip
   // pays nothing for it in `render`.
@@ -93,7 +93,7 @@ export default class Tabs extends View {
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         .when(Boolean(program?.icon), el => el.child(program.tint ? svg(program.icon).size(14).text_color(t.muted) : image(program.icon).size(14)))
         .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
-        .when(c.status === "working", el => el.child(this.ring(t, t.working)))
+        .when(c.status === "working", el => el.child(this.ring(t, t.accent)))
         .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(3).bg(t[c.status])))
         .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(12))));
     };

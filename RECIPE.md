@@ -416,7 +416,9 @@ are the shipped mod unchanged.
 
 The **ring** is drawn in three places now, each in its own file because a mod owns its own drawing:
 `artemis-agents` (12 px in the list), `artemis-tabs` (12 px in a tab, in the slot the shipped arc
-spun in) and `artemis-pane` (12 px at the end of the band). Same footprint as the spinner it
+spun in) and `artemis-pane` (12 px at the end of the band). All three take **`t.accent`**, the bar
+logo's own colour while it works — not `t.working`, which is the blue the arc used: measured on the
+tab, the glyph's pixels read (189, 176, 152), the accent's cream, where the arc's were blue. Same footprint as the spinner it
 replaces — 12 px, `flex_none`, no margin — so no row moves and the two copies can be swapped a state
 at a time. Measured on the tab: 61.2, 48.2, 60.8, 70.8 over four shots 0.5 s apart. The pane's copy
 is the same expression but was not seen working: the spaces open at the time had no pane whose
