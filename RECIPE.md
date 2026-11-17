@@ -67,7 +67,8 @@ top of the window. Every plate that *should* be visible names the literal `#070b
 **The pane** is a bare frame: it carries its own 32 % tint (`content.pane.background`), gets a
 `1px` `#ffffff1f` border (the pane holding the keyboard takes `accent` `#e9d8b9` instead) and
 radius 14. The `artemis-pane` header
-sits 30 px at the top, always visible: program icon, title, folder, the agent's status (spinner,
+sits 30 px at the top, always visible: program icon, title, folder, the agent's status (the breathing
+ring,
 `Needs you` while blocked, a dot when done), and — on hover only — split-right, split-down, zoom
 and close. The header paints `theme().background`, i.e. a second 20 % tint, plus a 1 px `border`
 rule: two thin layers rather than a slab, which is what keeps it from fighting the photograph.
@@ -412,6 +413,14 @@ unsampled host gets no line rather than an empty one. It is indented `pl(8)`, wh
 same pixel as the machine header's icon — measured at x = 64 in a 2× shot for both — and skipped when the rail is
 narrow. That is the whole diff: the machine rows, folding, reconnecting, git tails and drag ordering
 are the shipped mod unchanged.
+
+The **ring** is drawn in three places now, each in its own file because a mod owns its own drawing:
+`artemis-agents` (12 px in the list), `artemis-tabs` (12 px in a tab, in the slot the shipped arc
+spun in) and `artemis-pane` (12 px at the end of the band). Same footprint as the spinner it
+replaces — 12 px, `flex_none`, no margin — so no row moves and the two copies can be swapped a state
+at a time. Measured on the tab: 61.2, 48.2, 60.8, 70.8 over four shots 0.5 s apart. The pane's copy
+is the same expression but was not seen working: the spaces open at the time had no pane whose
+`panes()` status was `working`, so it is code-verified and `check`-passed, not screenshot-verified.
 
 **`mods/artemis-agents`** (no `props`) is the shipped `agents` with one method: `status()` draws a
 **ring** for an agent that is working instead of the shipped arc, which mirrors the state by
