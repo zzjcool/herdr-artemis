@@ -61,8 +61,8 @@ and the corona read straight through the text.
   already have to that host, not the connection Herdr keeps — that one carries text and stops at
   8 MiB, which would corrupt anything binary. It says what happened in the same toast the rest of
   the window uses;
-- the bar's own mod (`artemis-bar`) binds no key, starts no program, and only asks Herdr to
-  minimise, maximise or close the window; the pane header (`artemis-pane`), the tab strip
+- no mod binds a key or touches the network: the mark at the left of the status bar opens the app's
+  settings on a click; the pane header (`artemis-pane`), the tab strip
   (`artemis-tabs`), the status bar's left half (`artemis-workspace-status`) and the space list
   (`artemis-spaces`) are the shipped mods with the one thing changed that they needed here (§
   *Watch out* in the recipe); none of them, nor the monitor, touches the network.
@@ -72,7 +72,6 @@ and the corona read straight through the text.
 check the mods, then switch:
 
 ```sh
-herdr-app check ~/.config/herdr-app/mods/artemis-bar
 herdr-app check ~/.config/herdr-app/mods/artemis-pane
 herdr-app check ~/.config/herdr-app/mods/artemis-tabs
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status

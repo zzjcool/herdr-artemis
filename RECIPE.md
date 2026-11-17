@@ -50,8 +50,9 @@ square rect the app draws and does not clip to the pane's radius, so at any alph
 squares every corner the frame rounds (measured — see *Watch out*); the pane's fill does the same
 job, on the right side of the curve. `terminal_padding` `[20, 24]` leaves the picture as a mount
 inside each pane, which is where the glass reads even over the frame's black. `chrome` is
-`#00000000` on purpose: the bar paints `chrome` (`mods/artemis-bar/main.js`, `.bg(t.chrome)`), so a
-transparent `chrome` is what keeps the bar's type on the photograph instead of on a band across the
+`#00000000` on purpose: the mods that sit on the photograph paint `chrome` (the status bar's
+`artemis-workspace-status`, `.bg(t.chrome)`), so a transparent `chrome` is what keeps their type on
+the photograph instead of on a band across the
 top of the window. Every plate that *should* be visible names the literal `#070b1240` instead.
 
 **The four plates** carry the sturdier version of the same smoke — the literal `#070b1240`
@@ -78,8 +79,24 @@ clipped at all: so the band rounds itself, to the frame's radius
 minus the 1 px border (13 against 14), and its tint stops on the curve exactly where the pane's
 fill does.
 
-**Top bar — 38 px, full width, `window_drag: true`, nothing painted.** Its type sits straight on
-the photograph. One row at 11.5 px, left to right:
+**Top bar — gone, and `mods/artemis-bar` with it.** The layout used to open with a 38 px
+`window_drag` strip carrying the mark, the space's name and branch, the folder leaf, the tab's name
+and a UTC clock. The mark now sits at the far left of the status bar and the strip is deleted; the
+mod file is kept, unreferenced, because putting the block back (38 px block, `window_drag: true`,
+`content.mod: "artemis-bar"`, first child of the root) restores the old layout exactly. Two costs,
+both measured:
+
+- **the UTC clock is gone.** It lived only there (`new Date` in `mods/` appears nowhere else), so if
+  the time is wanted it has to be rehomed — the status bar's right half is `sysmon`, its left half is
+  this row.
+- **the window is dragged by the tab strip only** (`window_drag: true` at `tabs`), which spans the
+  work column, not the full width.
+
+The traffic lights are the other consequence: they are drawn over the content at the layout's
+`traffic_lights` inset `(14, 13)` and the bar's `pl(78)` was what cleared them, so the rail's header
+takes `pt(16)` now — 16 px plus the root's own 14 px starts "Spaces" below the buttons, measured.
+
+**What the bar drew, for the record** — one row at 11.5 px, left to right:
 
 - **the eclipse mark, 16 px:** a 1 px outer ring at `${color}38` (22 % of the status colour),
   a 1 px rim in the status colour at 11 px, and a 5 px Moon disc in `#05080c`.
@@ -263,21 +280,20 @@ line is skipped entirely in the rail's narrow (icon) mode.
 
 **Clicks and hovers**
 
-- The mod stops the left mouse-down on its clock and its window buttons, so a window drag never
-  starts from them; the bar's and the tab strip's `window_drag` take every other press.
-- Nothing in the bar is clickable — the mark is a lamp, not a button, and the monitor's block takes
-  no press at all. Everything else — the space and agent lists, the tab bar, the pane headers,
+- The tab strip's `window_drag` takes every press the mods do not claim.
+- The **mark in the status bar is the one clickable thing in that row**: `on_click` runs
+  `app.settings`, the same command the shipped sidebar's Settings row runs. It is a lamp as well —
+  the ring breathes with the app's agent state — but the click is new, and it is why the mark moved:
+  a lamp in a bar had nothing to open. Everything else — the space and agent lists, the tab bar, the pane headers,
   `workspace-status`, the panel — behaves as in Herdr's own layouts, because it is those shipped mods.
 
 **What moves**
 
-- Dragging the bar moves the window, and so does dragging the tab strip — both blocks are
-  `window_drag: true`. On Linux and Windows the bar's own buttons minimise, maximise/restore and
-  close it.
+- Dragging the tab strip moves the window (`window_drag: true`); the 38 px band above the rail is no
+  longer a drag surface now that the bar is gone.
 - Dragging the rail's right edge resizes it 220–420 px.
-- The motion in the layout: the mark's pulse (native GPUI `.loop` on opacity, no JS redraws), the
-  clock (one tick a second via `cx.timer.every(1000)`, notifying only when the formatted string
-  changed) and the monitor's numbers (one redraw a second).
+- The motion in the layout: the mark's pulse in the status bar (native GPUI `.loop` on opacity — and
+  in all three agent glyphs) and the monitor's numbers (one redraw a second).
 
 **Keys** — the layout binds nothing and leaves the person's `keys.json` alone; neither mod binds a
 key. The bar mod runs no program and asks Herdr only to minimise, maximise or close the window; the
@@ -291,7 +307,8 @@ connection of its own and holds no key.
 layouts/artemis.json          the window
 layouts/artemis.svg           the picture Settings shows for this layout (root "preview")
 backgrounds/artemis.jpg       the ground: the whole NASA frame, re-encoded
-mods/artemis-bar/             main.js, mod.json {"place":"none","title":"Artemis bar"}
+mods/artemis-bar/             main.js, mod.json {"place":"none","title":"Artemis bar"} — no longer in
+                              the layout (see *Top bar*); kept so the block can be put back
 mods/artemis-pane/            main.js, mod.json {"place":"none","title":"Artemis pane header"},
                               close/zoom/unzoom/split-right/split-down.svg
 mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis tabs"},
@@ -312,11 +329,10 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
               background {image "backgrounds/artemis.jpg", fit "contain"},
               padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0,
               preview "layouts/artemis.svg"
-├ bar         block 38   window_drag  mod artemis-bar     (nothing painted)
-├ body        row        gap 10  weight 1
+├ body        row        gap 10  weight 1      (the topmost thing: no bar above it)
 │ ├ sidebar   column 292  min 220  max 420  radius 14
 │ │ │                    background "#070b1240"  border {1,"#ffffff1f"}
-│ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill)
+│ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill; pt 16 for the lights)
 │ │ └ agents  block weight 1  min 90  mod artemis-agents  (no fill)
 │ └ work      column gap 10  resizable false
 │   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
@@ -328,7 +344,7 @@ root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors
 │       └ panel-body  stack  active "files"  children: files, changes
 └ status      row 26  gap 0  resizable false  radius 10
                        background "#070b1240"  border {1,"#ffffff1f"}
-  ├ status-workspace  block weight 1  mod artemis-workspace-status
+  ├ status-workspace  block weight 1  mod artemis-workspace-status  (mark → app.settings)
   └ status-sysmon     block 480  min 480  mod sysmon  (paints no fill)
 ```
 
@@ -339,7 +355,8 @@ The pane frame is exactly
 square (the node's `radius` rounds the block's own fill, not the pane, and does not clip the tab's
 contents — measured, see *Watch out*).
 
-**`mods/artemis-bar`** (no `props`) is one `h_flex().size_full()`: `.pl(mac ? 78 : 12).pr(4)`,
+**`mods/artemis-bar`** (no `props`, and no longer placed in the layout — see *Top bar*) is one
+`h_flex().size_full()`: `.pl(mac ? 78 : 12).pr(4)`,
 `.text_size(11.5)`, `.overflow_hidden()`, and `.bg(t.chrome)` — which is transparent, so the row
 paints nothing and its type sits on the photograph. It imports `View` and `div` from `gpui-kit`,
 `h_flex` from `gpui-base`, and `agents`, `focused`, `home`, `run`, `settings`, `spaces`,
@@ -897,7 +914,7 @@ the content, one for the footer, 10 px between them.
 Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`, then:
 
 ```sh
-herdr-app check ~/.config/herdr-app/mods/artemis-bar           # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-bar           # exit 0, no longer in the layout
 herdr-app check ~/.config/herdr-app/mods/artemis-pane          # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-tabs          # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status  # exit 0

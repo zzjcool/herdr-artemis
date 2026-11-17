@@ -62,17 +62,6 @@
   "terminal_opacity": 0,
   "children": [
     {
-      "id": "bar",
-      "type": "block",
-      "size": {
-        "px": 38
-      },
-      "window_drag": true,
-      "content": {
-        "mod": "artemis-bar"
-      }
-    },
-    {
       "id": "body",
       "type": "row",
       "gap": 10,
