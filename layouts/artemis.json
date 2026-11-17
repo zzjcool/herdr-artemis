@@ -53,7 +53,7 @@
     "image": "backgrounds/artemis.jpg",
     "fit": "contain"
   },
-  "padding": 14,
+  "padding": 0,
   "gap": 10,
   "terminal_padding": [
     20,

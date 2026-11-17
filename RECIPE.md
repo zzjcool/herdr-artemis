@@ -26,7 +26,7 @@ ssh, no key handling, no network of the mod's own — only read-only queries run
 
 ## What you see
 
-**The window.** Root `padding` `14`, `gap` `10`, `titlebar: none`, traffic lights at `[14, 13]`,
+**The window.** Root `padding` `0`, `gap` `10`, `titlebar: none`, traffic lights at `[14, 13]`,
 theme `graphite` with the `colors` map below, terminal padding `[20, 24]`, `terminal_opacity`
 `0`, and `background` `{ "image": "backgrounds/artemis.jpg", "fit": "contain" }`.
 
@@ -94,7 +94,8 @@ both measured:
 
 The traffic lights are the other consequence: they are drawn over the content at the layout's
 `traffic_lights` inset `(14, 13)` and the bar's `pl(78)` was what cleared them, so the rail's header
-takes `pt(16)` now — 16 px plus the root's own 14 px starts "Spaces" below the buttons, measured.
+takes `pt(26)` now, and the layout has no outer margin: the rail's plate is the window's corner, so
+the lights land inside it and 26 px starts "Spaces" below a 13 px inset with a 12 px button.
 
 **What the bar drew, for the record** — one row at 11.5 px, left to right:
 
@@ -110,14 +111,14 @@ takes `pt(16)` now — 16 px plus the root's own 14 px starts "Spaces" below the
 - On Linux and Windows only (`window().buttons`): minimise, maximise/restore, close — 30 px
   each, glyphs in `dim`.
 
-**Rail — 292 px.** One plate, its children flush to its edge (the 14 px the root keeps is what
-insets the whole body from the window), holding, top to bottom:
+**Rail — 292 px.** One plate, its children flush to its edge (the plate *is* the window's edge: the
+root keeps no padding), holding, top to bottom:
 
 1. **`spaces`** — the shipped `spaces` mod, `weight: 1`, `min` 90.
 2. **`agents`** — the shipped `agents` mod, `weight: 1`, `min` 90.
 
 **Work column** — `gap` 10 and no padding of its own, because one gutter runs through the whole
-window: the root keeps `padding` 14 (the only inset from the window's edge), `body` has `gap` 10
+window: the root keeps `padding` `0` (the plates are the window's edges), `body` has `gap` 10
 between the rail and the work column, and the work column's `gap` 10 spends itself between `tabs`
 and `work-body`. So every plate is 10 px from its neighbour on all four sides, the tab strip's top
 edge sits on the rail's top line, and the rail, the pane and the panel all end on one bottom line —
@@ -327,12 +328,12 @@ mods/sysmon/                  main.js, mod.json {"place":"none","title":"System 
 ```
 root  column  titlebar "none", traffic_lights [14,13], theme "graphite" + colors,
               background {image "backgrounds/artemis.jpg", fit "contain"},
-              padding 14, gap 10, terminal_padding [20,24], terminal_opacity 0,
+              padding 0, gap 10, terminal_padding [20,24], terminal_opacity 0,
               preview "layouts/artemis.svg"
 ├ body        row        gap 10  weight 1      (the topmost thing: no bar above it)
 │ ├ sidebar   column 292  min 220  max 420  radius 14
 │ │ │                    background "#070b1240"  border {1,"#ffffff1f"}
-│ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill; pt 16 for the lights)
+│ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill; pt 26 for the lights)
 │ │ └ agents  block weight 1  min 90  mod artemis-agents  (no fill)
 │ └ work      column gap 10  resizable false
 │   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"

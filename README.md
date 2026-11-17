@@ -27,7 +27,9 @@ and the corona read straight through the text.
   frame's own radius instead;
 - one grid: inside the window's 14 px margin every plate is 10 px from its neighbour on all four
   sides — the tab strip's top edge sits on the rail's top line, the rail, the pane and the panel
-  end on one bottom line, and the status bar is a full-width footer one gutter below it;
+  end on one bottom line, the plates run to the window's own edges (no outer margin) and the
+  traffic lights sit inside the rail's corner; the status bar is a full-width footer one gutter
+  below the body;
 - menu surfaces (`popover`, `raised`, `input`) stay opaque, because a menu over a
   photograph needs a floor;
 - **a system monitor at the right end of the status bar**: the CPU, memory and network of the
