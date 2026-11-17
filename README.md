@@ -25,7 +25,7 @@ and the corona read straight through the text.
   the frame's fill and its divider stop on the curve, so no square corner pokes out of it —
   the header band cannot be clipped that way, so `artemis-pane` paints it rounded to the
   frame's own radius instead;
-- one grid: inside the window's 14 px margin every plate is 10 px from its neighbour on all four
+- one grid: with no margin to the frame every plate is 10 px from its neighbour on all four
   sides — the tab strip's top edge sits on the rail's top line, the rail, the pane and the panel
   end on one bottom line, the plates run to the window's own edges (no outer margin) and the
   traffic lights sit inside the rail's corner; the status bar is a full-width footer one gutter
