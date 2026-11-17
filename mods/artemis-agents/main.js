@@ -413,7 +413,9 @@ export default class Agents extends View {
           open ? this.folded.add(g.id) : this.folded.delete(g.id);
           cx.notify();
         })
-        .child(div().truncate().text_color(t[g.status] ?? t.dim).child(g.label))
+        // The section's word takes the colour of the glyph it labels: "Working" is the ring's
+        // accent, not the blue the shipped arc was drawn in.
+        .child(div().truncate().text_color(g.status === "working" ? t.accent : (t[g.status] ?? t.dim)).child(g.label))
         .when(byPriority || !open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
         .child(div().flex_1())
         .when(!open, (el) => el
