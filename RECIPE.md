@@ -55,7 +55,15 @@ inside each pane, which is where the glass reads even over the frame's black. `c
 the photograph instead of on a band across the
 top of the window. Every plate that *should* be visible names the literal `#070b1240` instead.
 
-**The four plates** carry the sturdier version of the same smoke — the literal `#070b1240`
+*Watch out:* `solid` and `solid_foreground` are a **fill and its text**, not two greys. Every shipped
+mod that has a primary button pairs them — the `confirm` dialog's Yes, `changes`' Commit,
+`machine-add`'s Add, `prompt`'s primary — and every shipped theme's `solid` is a bright accent
+(`#7d82d9`, `#dcd7ba`, `#82FB9C`) with a dark `solid_foreground`. This theme started with
+`solid` `#111820` and `solid_foreground` `#0a0f15`: near-black on near-black, so the "Close space?"
+dialog's Confirm was invisible. Measured after the fix: fill `(233,216,185)`, text `(10,12,17)`,
+14.0:1.
+
+ — the literal `#070b1240`
 (25 % of `#070b12`) with a `1px` border of `#ffffff1f`, and a corner:
 
 | plate | size | radius |
@@ -168,7 +176,8 @@ plate.
 `#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`
 `#0d141c`, `input` `#0c131a`, `hover` `#ffffff0d`, `selected` `#ffffff14`, `border`
 `#ffffff1f`, `foreground` `#e7ecf3`, `muted` `#b7c2cd`, `dim` `#828d9c`, `accent` `#e9d8b9`,
-`accent_foreground` `#0a0c11`, `solid` `#111820`, `solid_foreground` `#0a0f15`, `selection`
+`accent_foreground` `#0a0c11`, `solid` `#e9d8b9` (= `accent`), `solid_foreground` `#0a0c11`
+(= `accent_foreground`), `selection`
 `#2a3a4d66`, `working` `#8bb3d9`, `blocked` `#e08a6c`, `done` `#d8c8a6`, `idle` `#5f6a78`,
 `unknown` `#47525f`, and the 16-colour ANSI ramp `#121821 #dd7a63 #a3bd97 #e3c88d #7fa6cf
 #c39ecf #83bfc0 #c9d2dc #3b4655 #ef9781 #bcd4ab #f2dba3 #9cc0e6 #d8b5e2 #9ed8d6 #edf2f7`
