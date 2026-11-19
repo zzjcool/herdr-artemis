@@ -55,15 +55,7 @@ inside each pane, which is where the glass reads even over the frame's black. `c
 the photograph instead of on a band across the
 top of the window. Every plate that *should* be visible names the literal `#070b1240` instead.
 
-*Watch out:* `solid` and `solid_foreground` are a **fill and its text**, not two greys. Every shipped
-mod that has a primary button pairs them — the `confirm` dialog's Yes, `changes`' Commit,
-`machine-add`'s Add, `prompt`'s primary — and every shipped theme's `solid` is a bright accent
-(`#7d82d9`, `#dcd7ba`, `#82FB9C`) with a dark `solid_foreground`. This theme started with
-`solid` `#111820` and `solid_foreground` `#0a0f15`: near-black on near-black, so the "Close space?"
-dialog's Confirm was invisible. Measured after the fix: fill `(233,216,185)`, text `(10,12,17)`,
-14.0:1.
-
- — the literal `#070b1240`
+**The four plates** carry the sturdier version of the same smoke — the literal `#070b1240`
 (25 % of `#070b12`) with a `1px` border of `#ffffff1f`, and a corner:
 
 | plate | size | radius |
@@ -72,6 +64,15 @@ dialog's Confirm was invisible. Measured after the fix: fill `(233,216,185)`, te
 | `tabs` | 38 px tall, `window_drag: true` | 12 |
 | `status` | 26 px tall — a row of two mods: `workspace-status` and `sysmon`, 480 px | 10 |
 | `panel` (files / changes) | 340 px, `min` 280, `max` 900, `hidden: true` | 14 |
+
+*Watch out:* `solid` and `solid_foreground` are a **fill and its text**, not two greys. Every shipped
+mod that has a primary button pairs them — the `confirm` dialog's Yes, `changes`' Commit,
+`machine-add`'s Add, `prompt`'s primary — and every shipped theme's `solid` is a bright accent
+(`#7d82d9`, `#dcd7ba`, `#82FB9C`) with a dark `solid_foreground`. This theme started with
+`solid` `#111820` and `solid_foreground` `#0a0f15`: near-black on near-black, so the "Close space?"
+dialog's Confirm was invisible. Measured after the fix: fill `(233,216,185)`, text `(10,12,17)`,
+14.0:1.
+
 
 **The pane** is a bare frame: it carries its own 32 % tint (`content.pane.background`), gets a
 `1px` `#ffffff1f` border (the pane holding the keyboard takes `accent` `#e9d8b9` instead) and
