@@ -327,7 +327,7 @@ mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis
 mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
 mods/artemis-spaces/          main.js, mod.json {"place":"none","title":"Artemis spaces"}
 mods/artemis-agents/          main.js, mod.json {"place":"none","title":"Agents"}
-mods/artemis-files/           main.js, preview.js, mmdr.js, mod.json {"place":"none"},
+mods/artemis-files/           main.js, preview.js, render.js, mod.json {"place":"none"},
                               file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
 mods/artemis-menu/            main.js, mod.json {"place":"none","title":"Artemis menu"} + 10 svg
@@ -580,34 +580,68 @@ inside that — in `fences.length - diagrams > 60 || diagrams > 40`.
 **A mermaid fence is drawn, not coloured.** `lang === "mermaid"` becomes the block kind `diagram`,
 which keeps no `EditorState` at all — the sheet of source is built only if the picture cannot be —
 and `loadDiagrams()` walks the page after it is on screen exactly as `loadImages()` does, one fence
-at a time because each one is a process. The process is **mmdr** (mermaid-rs-renderer 0.3.1): a
-3.3 MB archive that unpacks to a 7 MB pure-Rust binary, which writes SVG in a few milliseconds and
-which Herdr's own `image()` rasterizes with resvg — no browser, no node, no DOM. `image()` reads
-only from Herdr's folder, so the SVG lands in `data/artemis-files/diagram/`, named by the SHA-1 of
-`mmdr0.3.1/card + theme + font + source`: the name describes the *request*, not the bytes, and the
-tag in it is what makes a new renderer or a change to this rule start from an empty cache. The
-canvas is asked to be transparent (`{"themeVariables":{"background":"#00000000"}}`), or the
-renderer's own theme paints a floor inside the panel's smoke. Its palette follows the window rather
-than the document — `dark` when `theme().background` (then `canvas`, then `foreground`) is dark,
-`default` when it is not, which is the rule the rest of the window follows — and the labels take the
-person's `font_family`, so a diagram is not the one thing on the page set in another typeface. A
-document that pins its own theme in `%%{init: …}%%` keeps it, because that is mermaid's rule and not
-this mod's business.
+at a time because each one is a process. The process is **merman** (`merman-cli` 0.10.0, from
+latias94/merman): a 15 MB `.tar.xz` that unpacks to a 63 MB pure-Rust binary, which writes SVG in a
+few milliseconds and which Herdr's own `image()` rasterizes with resvg — no browser, no node, no
+DOM. `image()` reads only from Herdr's folder, so the SVG lands in `data/artemis-files/diagram/`,
+named by the SHA-1 of `merman0.10.0-resvg-safe-fonts/<theme>/<8 hex of the font>/<source>`: the
+name describes the *request*, not the bytes, and the tag in it is the rule the picture was drawn
+under — a new renderer, a new pipeline, a different measurement of the labels all ask for names
+nobody has drawn yet. That is not only about the cache: the host rasterizes a path **once** and
+hands the same picture back for as long as the name lives, so a fence drawn differently has to be
+asked for by a different name rather than rewritten under the old one. One command draws one
+fence: `merman-cli render <source.mmd> -o <out.svg> --svg-pipeline resvg-safe --font-measurement
+native --font-dir <the person's font folder> -t <theme> -c <config.json> -q`, with the source
+written to a file because `exec` has no stdin. `resvg-safe` is the first part that matters:
+mermaid labels a node with HTML inside a `foreignObject` and writes colours as `var(--…)`, and the
+rasterizer behind `image()` reads neither — the safe pipeline flattens the labels to `<text>` and
+every colour to a literal, so what comes back is what a browser would have shown. The two font
+flags are the second, and they were not in the first version of this: left to itself the renderer
+measures a label at about 0.4 em a character, a real face is half again wider, and the safe
+pipeline's own `overflow:hidden` then cut both ends off every tight label — `Animal` arrived as
+`nima`, `+String name +int age` as `ring name +int`, a class diagram of guesses. Handed the folder
+the person's `font_family` came from, the box and the words agree, and a fence costs about 50 ms end
+to end — 13 pictures of the 14-fence page in 0.67 s, against 8.07 s for the same page measured by
+full system discovery. Only that folder: discovery (`--font-measurement native` with no
+`--font-dir`) also works but loads a whole font library into the context, and the §3 flowchart of
+`anotify-trigger-design.md` — whose labels are CJK — then died on `native_font_resources` instead
+of drawing. The folder is named only when it is there (a `--font-dir` on a missing one is a hard
+error) and only inside the home, because that is where this mod may look at all. Its palette
+follows the window rather than the document — `dark` when `theme().background` (then `canvas`,
+then `foreground`) is dark, `default` when it is not, which is the rule the rest of the window
+follows — and the labels take the person's `font_family` through the Mermaid configuration file
+(`{"themeVariables":{"fontFamily":…}}`, one file per font, since a page drawn in another face must
+not reuse a config written for the old one), so a diagram is not the one thing on the page set in
+another typeface. There is no background to ask for: merman paints no canvas of its own, so a
+picture sits on the panel's smoke, where the previous renderer needed an explicit transparent one to
+stop painting `#333` under every diagram. A document that pins its own theme in `%%{init: …}%%`
+keeps it, because that is mermaid's rule and not this mod's business.
 
-**A few types bring their own light palette** — a gantt's bars, a timeline's event boxes, a quadrant
-chart's four panels — and the renderer keeps it whatever `-t` says, while the words still follow the
-theme. On a dark window that is light words on light bands: a picture of nothing. So the picture is
-read back
-after it is drawn — the `<rect>` fills, in every spelling the renderer writes (`#rgb`, `#rrggbb`,
-`rgb()`, `hsl()`, the few names it uses), with the zero-opacity and `none` ones left out — and when
-light bands outnumber dark ones the diagram is drawn once more on a **card**: `-t default` with an
-opaque `#f7f7f7` background, which is mermaid's own printout, dark words on paper. That is decided
-from the picture, not from a table of types to maintain, and `diagram()` answers `card` so the panel
-can clip the paper to the layout's 8 px corner instead of leaving a square in the smoke. A light
-window needs no card: transparent on a light surface is already the right ground. The config that
-asks for paper is its own file (`card-<theme>-<8 hex of the font>.json`), because the font is part
-of the request and a page drawn in another face must not reuse a config written for the old one. The
-second render is deterministic, so the file stays right under the name it was asked for.
+**Every picture says how big it is in its `viewBox`.** merman's root element is
+`<svg width="100%" viewBox="4 4 2069.16 359.255">`: a percentage width for a browser to resolve
+against its container, with the size that actually matters — the two extents after the origin —
+inside the `viewBox`, whose origin is not always zero (5 5 on a mindmap, -50 -10 on a sequence
+diagram) and is not part of the picture. `dimensions()` in `preview.js` already read the attribute
+pair and fell back to the `viewBox` when a width was a percentage, so nothing had to change there:
+it takes the third and fourth numbers rather than the origin, and answers 223 × 214 for a picture
+whose `viewBox` starts at -102.6 -93.6. What still counts as a broken render is a file that cannot
+be measured at all: that one is deleted and drawn again.
+
+**There is no light card any more.** The old rule existed because the previous renderer kept a light
+palette of its own for a gantt, a timeline and a quadrant chart whatever `-t` said, while the words
+still followed the theme — light words on light bands, a picture of nothing — so the picture was
+read back (its `<rect>` fills) and, when light ones outnumbered dark ones, drawn a second time on
+`#f7f7f7` paper and clipped to the layout's 8 px corner. merman follows mermaid's own dark theme in
+all three: a gantt's rows, a timeline's event boxes and a quadrant chart's four panels come back
+dark with light words, checked on the 14-fence page rather than assumed. Its fills would not even
+have been readable the old way: it writes a fallback `fill="#eaeaea"` on a sequence diagram's
+actor boxes and then paints them `#1f2020` from the `<style>` block, so the attribute says light
+where the picture is dark. The whole of it went with the rule — the fill reading, the colour parser,
+the second render, the `card` flag `diagram()` used to answer, and the clip in the panel — and the
+picture is drawn as it comes. What is left of the renderer's own drawing is one cosmetic thing: a
+gantt's date axis is laid out for the renderer's 800 px canvas, so a month of daily ticks arrives
+with its labels touching once the picture is fitted to a narrower column. That is merman's, not
+this mod's, and it does not make the diagram unreadable.
 
 **The page still fits the diagram, and the picture zooms where it stands.** Fitting is right — a
 1400 px diagram must not push the prose sideways — but a sequence diagram with six participants
@@ -650,17 +684,24 @@ Four things can go wrong and none of them costs the reader the source. A binary 
 downloaded once — the only file this mod fetches from the internet, through `curl` because `fetch`
 here carries text and json and no bytes, pinned by version and by the sha256 of the archive, which is
 what makes it trustworthy rather than the transport — after looking for one on `PATH` first, since a
-person who installed mmdr themselves already chose their version; the probe has to answer like mmdr
-to count, and a render that fails off a `PATH` binary says `(mmdr on PATH)` so the two are told
-apart. A download that does not match its checksum is deleted rather than unpacked, one that cannot
-run loses both the binary and its version file, and a platform with no published build is named in
-the sentence it shows. A type the renderer does not know, or source it cannot parse, exits non-zero
-and the last line of its stderr becomes the note with the CLI's `error:` stripped off, because the
-panel speaks in the panel's voice: `mermaid · unknown or missing Mermaid diagram header`. A picture
-that is still light on light after the card — a document pinning a palette of its own — is deleted
-rather than cached and says `mermaid · this diagram's own colours cannot be read here`. Either way
-the fence falls back to the same bordered sheet and the same coloured editor it had before this
-existed, prefixed by that one dim line — `mermaid · <why>` — and the failure is remembered for the
+person who installed `merman-cli` themselves already chose their version; the probe has to answer in
+its voice (`merman-cli 0.10.0`) to count, and a render that fails off a `PATH` binary says
+`(merman-cli on PATH)` so the two are told apart. A download that does not match its checksum is
+deleted rather than unpacked, one that cannot run loses both the binary and its version file, and a
+platform with no published build is named in the sentence it shows — Windows on ARM is one, since
+this release ships no aarch64 Windows archive where the previous renderer did. The archive is
+unpacked straight into the folder the program lives in, and not copied there afterwards: `writeFile`
+here refuses anything over 32 MiB, and this binary is 63 MB — a copy was the first version of this
+and every fence said so. A tar.xz holds one directory named after the target, so its top level is
+stripped and `merman-cli` lands at its final name, while the Windows zip already puts
+`merman-cli.exe` at its root; `tar` reads both. Everything the archive brought besides the program —
+a readme, a changelog, licences, completions, man pages — is swept out of the bin folder after it,
+and that same sweep is what deletes the binary and the version file of the renderer this mod used
+to fetch, the first time a diagram is drawn on a machine that still has them. A type the renderer
+does not know, or source it cannot parse, exits non-zero and the last line of its stderr becomes the
+note with the CLI's `error:` stripped off, because the panel speaks in the panel's voice:
+`mermaid · No Mermaid diagram type detected`. Either way the fence falls back to the same bordered
+sheet and the same coloured editor it had before this existed, prefixed by that one dim line — `mermaid · <why>` — and the failure is remembered for the
 session, so a page that is scrolled does not start a process a frame, and a failed install is
 remembered too, so an offline machine does not wait a minute per fence. The diagram cache is a
 folder of 240 names kept newest-first in `shared("artemis-files.diagrams")`, the rest unlinked, the

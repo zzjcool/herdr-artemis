@@ -64,17 +64,18 @@ and the corona read straight through the text.
   8 MiB, which would corrupt anything binary. It says what happened in the same toast the rest of
   the window uses;
 - **diagrams in a markdown page**: a `mermaid` fence is drawn as a picture — its source goes to
-  *mmdr*, a small pure-Rust renderer that writes SVG, and the SVG is drawn in the space the code
-  block had, as wide as the page has room for, capped and never enlarged, centred, its labels in
-  your own font and its palette taken from the window — so a flowchart, a sequence diagram, a class
-  diagram, a gantt or a mindmap reads as a diagram instead of as its own source. A gantt, a
-  timeline and a quadrant chart bring a light palette of their own that the renderer will not let
-  go, so on a dark window those are drawn on their own light card — dark words on paper, which is
-  mermaid's own look — with a rounded corner cut to the layout's 8 px. The renderer's archive is
-  3.3 MB and comes down once, on first use, from its pinned release (version and sha256 checked)
-  into a 7 MB binary, or is taken from a `PATH` that already has it; when it cannot be had, or a
-  diagram's own colours cannot be read here, the fence stays the coloured code sheet it was with
-  one dim line saying why — the words are never the price of a missing picture. A diagram that is
+  *merman* (`merman-cli` 0.10.0, a pure-Rust renderer that writes SVG), and the SVG is drawn in the
+  space the code block had, as wide as the page has room for, capped and never enlarged, centred,
+  its labels in your own font and its palette taken from the window — so a flowchart, a sequence
+  diagram, a class diagram, a gantt or a mindmap reads as a diagram instead of as its own source.
+  It replaced the renderer this used to fetch because that one laid a flowchart out by *subgraph
+  block*: a graph with a subgraph in it came back with the box between two nodes it had nothing to
+  do with and an edge running right-to-left across it, where merman follows mermaid's own ranking
+  along the edges. The archive is 15 MB and comes down once, on first use, from its pinned release
+  (version and sha256 checked) into a 63 MB binary, or is taken from a `PATH` that already has it —
+  five platforms, and no aarch64 Windows build, which the sentence says rather than serving one;
+  when it cannot be had, the fence stays the coloured code sheet it was with one dim line saying
+  why — the words are never the price of a missing picture. A diagram that is
   too wide to read where it stands zooms there, in the page: a trackpad's pinch or ⌘ with the wheel
   makes it bigger around the point under the pointer, the picture can be dragged inside its box to
   read the parts that hang over an edge, a double-click or the `Fit` beside it puts it back, and a

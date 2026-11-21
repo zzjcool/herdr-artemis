@@ -6,7 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
-import { diagram } from "./mmdr.js";
+import { diagram } from "./render.js";
 import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, props, readTextFile, run, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
@@ -606,9 +606,10 @@ export default class Files extends View {
         cx.notify();
       })
       .on_mouse_up("left", () => { block.drag = null; })
-      .child(h_flex().flex_none().absolute().left(at.x).top(at.y).child(block.picture.card
-        ? div().flex_none().rounded(8).overflow_hidden().child(image(block.picture.path).w(w).h(h))
-        : image(block.picture.path).w(w).h(h)));
+      // The picture is the picture: merman's dark theme covers every type the old
+      // light card existed for (a gantt, a timeline, a quadrant chart), so there is no
+      // paper to clip to a corner any more.
+      .child(h_flex().flex_none().absolute().left(at.x).top(at.y).child(image(block.picture.path).w(w).h(h)));
     return v_flex().flex_none().mb(10).w(width)
       .child(head(width, cx))
       .child(frame);
