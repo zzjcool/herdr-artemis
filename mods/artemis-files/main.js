@@ -6,6 +6,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, TextView } from "gpui-base";
 import * as fs from "fs/promises";
 import { kindOf, dimensions, cacheName, decode, extOf, CACHE } from "./preview.js";
+import { diagram } from "./mmdr.js";
 import { spaces, panes, focused, appHome, exec, hc, home, notify, openOverlay, props, readTextFile, run, setShared, shared, watchFolder, theme, settings, window } from "herdr";
 
 function location() {
@@ -26,7 +27,18 @@ const CORE_MAX = 5 * 1024 * 1024;
 // which is a different string (`nj-host` is reached as `nj-host-ts`). A target is an
 // ssh-config host, `user@host[:port]`, or `ssh://user@host:port` — scp refuses the
 // last form (measured: "Connection closed"), so it is split here.
-const lastLine = (text) => String(text ?? "").trim().split("\n").filter(Boolean).pop() ?? "";
+const lastLine = (text) => String(text ?? "").trim().split("\n").filter(Boolean).pop()?.replace(/^error:\s*/i, "") ?? "";
+
+// A colour read from a theme, as a number between nothing and white: three- and
+// six-digit hex and the alpha-suffixed one the layout writes, and nothing else, because
+// a value this cannot read is not a value worth guessing at.
+const luminance = (color) => {
+  const hex = /^#?([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(String(color ?? "").trim());
+  if (!hex) return null;
+  const digits = hex[1], wide = digits.length > 4;
+  const at = (index) => (wide ? parseInt(digits.slice(index * 2, index * 2 + 2), 16) : parseInt(digits[index] + digits[index], 16)) / 255;
+  return 0.2126 * at(0) + 0.7152 * at(1) + 0.0722 * at(2);
+};
 
 // A markdown document is cut at its code fences: prose keeps the host's renderer
 // (headings, lists, tables, quotes, links — none of which a mod should re-invent),
@@ -407,7 +419,7 @@ export default class Files extends View {
           if (this.mdMode === "source") this.code = this.editor(text, "markdown");
           else {
             this.blocks = this.build(text, path);
-            if (this.blocks) this.loadImages(context, cx);
+            if (this.blocks) { this.loadImages(context, cx); this.loadDiagrams(context, cx); }
           }
           return;
         }
@@ -464,6 +476,54 @@ export default class Files extends View {
     // picture is still capped, it just gets clipped rather than scaled.
     if (!h) return div().flex_none().mb(10).max_h(480).overflow_hidden().child(image(block.picture.path).w(w));
     return h_flex().flex_none().mb(10).justify_center().child(image(block.picture.path).w(w).h(h));
+  }
+
+  // A diagram's palette follows the window rather than the document: the renderer's
+  // dark preset is the one whose words are legible on this smoke, and its default one
+  // is what a light window needs. The background decides — the layout's background is
+  // the plate every page is drawn on — and the canvas and then the text colour stand
+  // behind it for a window whose background is the photograph itself.
+  diagramTheme() {
+    const t = theme();
+    const said = String(t.background || t.canvas || t.foreground || "").trim();
+    const ink = luminance(said);
+    // A colour nothing can read here is this window's own smoke, so it counts as dark;
+    // a three-digit light one is a light window and must not be mistaken for it.
+    const dark = ink === null ? true : ink <= 0.5;
+    // The person's own face, so the labels are not the one thing on the page written in
+    // another typeface; the renderer is told a family list, and it picks from it.
+    const family = settings().font_family;
+    return { theme: dark ? "dark" : "default", font: typeof family === "string" && family.trim() ? family : "Helvetica Neue, Helvetica, Arial, sans-serif" };
+  }
+
+  // A fence that is a picture sits in the same box a document's image does — as wide as
+  // the page has room for, capped, never enlarged past its own pixels — and when there
+  // is no picture it is the sheet of source it would have been, with one dim line
+  // saying why. A diagram must never cost the reader the words it was written from.
+  diagramBlock(block, index) {
+    if (block.status === "failed") {
+      const t = theme();
+      // A sheet needs an editor, and an editor is a host call that can fail too; the
+      // line saying why is what this fence can always afford.
+      return v_flex().flex_none().mb(10)
+        .child(div().px(2).pb(4).text_size(11).text_color(t.dim).child(`mermaid · ${block.error || "cannot draw this diagram"}`))
+        .when(Boolean(block.state), el => el.child(this.codeBlock(block, index).mb(0)));
+    }
+    const t = theme(), width = Math.max(80, (this.mdBox ?? 320) - 20);
+    if (!block.picture) return div().flex_none().mb(10).py(8).px(10).rounded(6).border_1().border_color(t.border)
+      .text_size(11).text_color(t.dim).child("mermaid · drawing…");
+    const { width: iw, height: ih } = block.picture;
+    // A picture nothing could measure keeps its width and is clipped rather than scaled,
+    // which is the rule a document's own picture already follows.
+    if (!iw || !ih) return div().flex_none().mb(10).max_h(480).overflow_hidden()
+      .when(Boolean(block.picture.card), el => el.rounded(8))
+      .child(image(block.picture.path).w(width));
+    const scale = Math.min(width / iw, 480 / ih, 1);
+    const picture = image(block.picture.path).w(Math.max(1, Math.round(iw * scale))).h(Math.max(1, Math.round(ih * scale)));
+    // A diagram with its own light paper is a card on the page, so the frame's corner is
+    // cut here rather than left as a square edge inside the smoke.
+    return h_flex().flex_none().mb(10).justify_center()
+      .child(block.picture.card ? div().flex_none().rounded(8).overflow_hidden().child(picture) : picture);
   }
 
   // A link in a rendered page: an address goes to the system browser, a path opens in
@@ -523,7 +583,7 @@ export default class Files extends View {
       this.code = null;
       if (this.markdown !== null && !this.blocks) {
         this.blocks = this.build(this.markdown, this.file);
-        if (this.blocks) this.loadImages(this.context, cx);
+        if (this.blocks) { this.loadImages(this.context, cx); this.loadDiagrams(this.context, cx); }
       }
     }
     this.touch(cx);
@@ -698,12 +758,19 @@ export default class Files extends View {
   // Every fence gets a retained editor, so they are built (and released) in one place.
   build(text, path) {
     const chunks = blocks(text);
-    // Every fence is a retained editor built in one pass; a document with a hundred of
-    // them is a hundred host calls in a row. Past sixty the page goes back to the
-    // host's own renderer — it keeps every word and loses only the colours.
-    if (chunks.filter(chunk => chunk.kind === "code").length > 60) return null;
+    // A fence that is not a diagram is a retained editor built in one pass; a document
+    // with a hundred of them is a hundred host calls in a row. Past sixty the page goes
+    // back to the host's own renderer — it keeps every word and loses only the colours.
+    // A mermaid fence costs a process and a picture instead, so the page carries two
+    // budgets: sixty fences that are not diagrams, and forty diagrams on top of them.
+    const fences = chunks.filter(chunk => chunk.kind === "code");
+    const diagrams = fences.filter(chunk => chunk.lang === "mermaid").length;
+    if (fences.length - diagrams > 60 || diagrams > 40) return null;
     return chunks.map(block => {
       if (block.kind === "code") {
+        // A mermaid fence becomes a picture instead, so it keeps no editor at all: there
+        // is nothing retained while it is on its way, and nothing to release if it fails.
+        if (block.lang === "mermaid") return { kind: "diagram", text: block.text, lang: block.lang, quote: block.quote };
         return { ...block, state: this.editor(block.text, block.lang || "text", { line_numbers: false, soft_wrap: true, font_size: this.wide ? 12.5 : 11.5 }) };
       }
       if (block.kind === "image") {
@@ -736,11 +803,45 @@ export default class Files extends View {
     }
   }
 
+  // Diagrams are drawn after the page is on screen as well, one at a time, because each
+  // one is a process. A fence that cannot be drawn goes back to being the sheet of
+  // source it was: the editor that sheet needs is built here rather than in `render`,
+  // and here is a load, so a host call is allowed.
+  async loadDiagrams(context, cx) {
+    // A page that has been left must stop drawing: forty fences in flight would keep
+    // starting processes for a document nobody is looking at.
+    const blocks = this.blocks;
+    for (const block of blocks ?? []) {
+      if (this.blocks !== blocks) return;
+      if (block.kind !== "diagram" || block.picture || block.status) continue;
+      block.status = "loading";
+      this.touch(cx);
+      try {
+        block.picture = await diagram(block.text, this.diagramTheme());
+        if (this.blocks !== blocks) return;
+        block.status = "ready";
+      } catch (e) {
+        if (this.blocks !== blocks) return;
+        // The sheet this fence falls back to needs an editor, and a host call can fail
+        // as well; what it does not need is to end the walk, or one bad fence would
+        // leave every fence after it on "drawing…" for good. The reasons are assigned
+        // before the state is published, so no frame sees a failure with nothing to say.
+        let state = null;
+        try { state = this.editor(block.text, "mermaid", { line_numbers: false, soft_wrap: true, font_size: this.wide ? 12.5 : 11.5 }); } catch { state = null; }
+        block.state = state;
+        block.error = lastLine(e?.message ?? e) || "cannot draw this diagram";
+        block.status = "failed";
+      }
+      if (this.current(context)) this.touch(cx);
+    }
+  }
+
   release() {
     this.code?.release(); this.code = null;
     // Only a fence has a retained editor; a picture's `status` is a word, and calling
-    // `release()` on it is how this line threw "not a function" the first time.
-    for (const block of this.blocks ?? []) if (block.kind === "code") block.state?.release();
+    // `release()` on it is how this line threw "not a function" the first time. A
+    // diagram is a fence too when it failed, so it is released with the others.
+    for (const block of this.blocks ?? []) if (block.kind === "code" || block.kind === "diagram") block.state?.release();
     this.blocks = null; this.markdown = null; this.image = null;
   }
 
@@ -912,6 +1013,7 @@ export default class Files extends View {
         })
         .children((this.blocks ?? []).map((block, i) => {
           if (block.kind === "code") return this.codeBlock(block, i);
+          if (block.kind === "diagram") return this.diagramBlock(block, i);
           if (block.kind === "image") return this.imageBlock(block);
           return div().id(`files-prose-${i}`).flex_none().child(
             TextView.markdown(`files-md-${i}-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, block.text)
