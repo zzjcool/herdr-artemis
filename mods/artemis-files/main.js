@@ -537,7 +537,7 @@ export default class Files extends View {
         .when(zoom > 1, el => el
           .child(label(`${Math.round(scale * 100)}%`, t.muted))
           .child(fitted(cx)))
-        .when(zoom === 1 && hint, el => el.child(label("scroll or pinch to zoom", t.muted))));
+        .when(zoom === 1 && hint, el => el.child(label("⌘-scroll or pinch to zoom", t.muted))));
     // A picture nothing could measure keeps its width and is clipped rather than scaled,
     // which is the rule a document's own picture already follows.
     // A picture nothing could measure has no gestures attached to it, so its label says
@@ -554,11 +554,12 @@ export default class Files extends View {
     const row = width;
     const frame = div().id(`files-diagram-${index}`).flex_none().w(width).min_w(0).rounded(8).hover(s => s.bg(t.hover))
       .when(zoom > 1, el => el.overflow_x_scrollbar())
-      // A bare wheel is the zoom; ⌥ or ⇧ leaves it to the page, which is how a page is
-      // scrolled with the pointer sitting on a picture. At the floor there is nothing left
-      // to zoom out of, so the wheel is the page's again instead of being swallowed.
+      // A bare wheel belongs to the page: a reader scrolling a document must not zoom a
+      // picture they merely pass the pointer over, and a page that stopped scrolling under
+      // a diagram would read as a broken page. ⌘ (or ⌥) with the wheel is the zoom a mouse
+      // gets; a trackpad pinches instead, and neither takes the reader's scroll away.
       .on_scroll_wheel((e, cx) => {
-        if (e.modifiers.alt || e.modifiers.shift) return;
+        if (!(e.modifiers.platform || e.modifiers.alt)) return;
         const next = Math.min(6, Math.max(1, zoom * Math.exp(-e.delta.y * 0.0025)));
         if (Math.abs(next - zoom) < 0.004) return;
         block.zoom = next;

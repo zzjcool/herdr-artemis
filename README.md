@@ -75,9 +75,10 @@ and the corona read straight through the text.
   into a 7 MB binary, or is taken from a `PATH` that already has it; when it cannot be had, or a
   diagram's own colours cannot be read here, the fence stays the coloured code sheet it was with
   one dim line saying why — the words are never the price of a missing picture. A diagram that is
-  too wide to read where it stands zooms there, in the page: the wheel or a trackpad's pinch makes
-  it bigger, ⌥ or ⇧ with the wheel scrolls instead, a double-click or the `Fit` beside it puts it
-  back, and the page itself scrolls sideways to carry it — nothing opens over the page;
+  too wide to read where it stands zooms there, in the page: a trackpad's pinch or ⌘ with the wheel
+  makes it bigger, the block scrolls sideways to carry the parts that no longer fit, a double-click
+  or the `Fit` beside it puts it back, and a bare wheel still scrolls the document — nothing opens
+  over the page and nothing takes the reader's scroll;
 - no mod binds a key, and the diagram renderer above is the one thing fetched from the internet:
   the mark at the left of the status bar opens the app's settings on a click; the pane header
   (`artemis-pane`), the tab strip

@@ -612,11 +612,12 @@ second render is deterministic, so the file stays right under the name it was as
 **The page still fits the diagram, and the picture zooms where it stands.** Fitting is right — a
 1400 px diagram must not push the prose sideways — but a sequence diagram with six participants
 arrives at 30–60 % with its labels at five or ten pixels, so the picture is a zoom surface itself.
-A bare wheel over it scales it in place, proportionally between 1× and 6× of the column's fit; a
-trackpad's two-finger pinch does the same through `on_pinch` (`0.1` is a tenth larger), which no
-scroll area takes; ⌥ or ⇧ with the wheel leaves it to the page, so a page can still be scrolled with
-the pointer sitting on a picture, and at the floor there is nothing left to zoom out of, so the
-wheel is the page's again rather than being swallowed. `Fit`, or a double-click, puts it back.
+A trackpad's two-finger pinch scales it in place through `on_pinch` (`0.1` is a tenth larger), and
+⌘ or ⌥ with the wheel does the same for a mouse, proportionally between 1× and 6× of the column's
+fit. A bare wheel is deliberately not the zoom: a reader scrolling a document must not resize a
+picture they merely pass the pointer over, and a page that stopped scrolling under a diagram reads
+as a broken page — which is exactly what the first version of this did, with a page-level both-axis
+container as well. `Fit`, or a double-click, puts it back.
 
 Nothing opens over the page, and the page keeps the scrolling it always had: vertical only
 (`overflow_y_scrollbar`). A zoomed picture is carried by its own block instead — the block stays the
