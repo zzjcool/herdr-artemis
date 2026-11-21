@@ -513,17 +513,34 @@ export default class Files extends View {
     if (!block.picture) return div().flex_none().mb(10).py(8).px(10).rounded(6).border_1().border_color(t.border)
       .text_size(11).text_color(t.dim).child("mermaid · drawing…");
     const { width: iw, height: ih } = block.picture;
-    // A picture nothing could measure keeps its width and is clipped rather than scaled,
-    // which is the rule a document's own picture already follows.
-    if (!iw || !ih) return div().flex_none().mb(10).max_h(480).overflow_hidden()
-      .when(Boolean(block.picture.card), el => el.rounded(8))
-      .child(image(block.picture.path).w(width));
+    // A wide diagram fitted to the column is a shape rather than a reading, so the picture
+    // is a door as well as a picture: one click opens it in the zoom dialog, drawn from
+    // the same cached SVG — nothing is rendered a second time for a bigger look.
+    const zoom = () => openOverlay({
+      mod: "artemis-files-zoom", kind: "dialog", width: 0.94, height: 0.9,
+      props: { path: block.picture.path, width: iw ?? null, height: ih ?? null, name: (this.file ?? "").split("/").pop() },
+    });
+    // The corner label is the code sheet's own habit — a fence says what it is — and this
+    // one says what it does. The frame is there from the start at the theme's hover wash,
+    // so the picture does not move when the pointer arrives; only its colour changes.
+    const framed = (child) => h_flex().flex_none().justify_center()
+      .child(div().id(`files-diagram-${index}`).flex_none().rounded(8).cursor_pointer()
+        .border_1().border_color(t.hover).hover(s => s.border_color(t.border))
+        .on_click(() => zoom())
+        .child(block.picture.card ? div().flex_none().rounded(8).overflow_hidden().child(child) : child));
+    // The label belongs to the picture, not to the page: it is as wide as the frame and
+    // right-aligned inside it, so a narrow diagram does not push its own name to the
+    // window's edge. A picture nothing could measure keeps its width and is clipped rather
+    // than scaled, which is the rule a document's own picture already follows.
+    const head = (box) => h_flex().flex_none().w(box).justify_end().pb(3)
+      .child(div().text_size(9.5).text_color(t.dim).child("mermaid · click to zoom"));
+    if (!iw || !ih) return v_flex().flex_none().mb(10).items_center()
+      .child(head(width + 2))
+      .child(framed(div().flex_none().max_h(480).overflow_hidden().child(image(block.picture.path).w(width))));
     const scale = Math.min(width / iw, 480 / ih, 1);
-    const picture = image(block.picture.path).w(Math.max(1, Math.round(iw * scale))).h(Math.max(1, Math.round(ih * scale)));
-    // A diagram with its own light paper is a card on the page, so the frame's corner is
-    // cut here rather than left as a square edge inside the smoke.
-    return h_flex().flex_none().mb(10).justify_center()
-      .child(block.picture.card ? div().flex_none().rounded(8).overflow_hidden().child(picture) : picture);
+    const box = Math.max(1, Math.round(iw * scale)), tall = Math.max(1, Math.round(ih * scale));
+    const picture = image(block.picture.path).w(box).h(tall);
+    return v_flex().flex_none().mb(10).items_center().child(head(box + 2)).child(framed(picture));
   }
 
   // A link in a rendered page: an address goes to the system browser, a path opens in

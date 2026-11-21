@@ -330,6 +330,7 @@ mods/artemis-agents/          main.js, mod.json {"place":"none","title":"Agents"
 mods/artemis-files/           main.js, preview.js, mmdr.js, mod.json {"place":"none"},
                               file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
+mods/artemis-files-zoom/      main.js, mod.json {"place":"none","title":"Diagram"}
 mods/artemis-menu/            main.js, mod.json {"place":"none","title":"Artemis menu"} + 10 svg
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
@@ -608,6 +609,32 @@ window needs no card: transparent on a light surface is already the right ground
 asks for paper is its own file (`card-<theme>-<8 hex of the font>.json`), because the font is part
 of the request and a page drawn in another face must not reuse a config written for the old one. The
 second render is deterministic, so the file stays right under the name it was asked for.
+
+**The page still fits the diagram, and the picture is a door.** Fitting is right — a 1400 px
+diagram must not push the prose sideways — but a sequence diagram with six participants arrives at
+30–60 % with its labels at five or ten pixels, so a click on the picture opens
+`mods/artemis-files-zoom` as a dialog over the dimmed window (`kind: "dialog"`, 94 % by 90 % of it,
+which the host centres and which Esc or a click beside closes). Nothing is rendered again for it:
+the dialog draws the cached SVG with `image()` at a bigger `.w()/.h()`, and the corner above every
+picture says so — `mermaid · click to zoom`, the code sheet's own habit of naming what the block is.
+Its scale is `null` until a step is taken, which means **Fit**: `min(box/iw, box/ih, 1)` against the
+dialog's own measured body and never enlarged on open, the same rule the page follows. `−` and `+`
+walk the steps 50 %, 75 %, 100 %, 125 %, 150 %, 200 %, 300 % and 400 % from wherever the picture is
+— not from the last step pressed, so a fitted 34 % goes to 50 % — `Fit` and the `0` key return to
+the page's rule, Esc closes, and ⌘/Ctrl with the wheel zooms continuously between 25 % and 600 %; a
+wheel without a modifier is still the scroll area's, which is why only the zoom branch stops the
+event. The body scrolls both ways (`overflow_scrollbar`) and its canvas is never smaller than the
+dialog: a picture that fits sits in the middle of it, a bigger one overflows and starts at the
+top-left, which a flex centre alone would put out of reach. The picture keeps its own paper when it
+is a card, so the dialog paints `popover` and nothing behind it. Above 1:1 the picture is drawn
+from a *variant* of the same SVG whose header declares 2–4× the pixels — `width` and `height`
+multiplied, the `viewBox` untouched, written once per factor as `<hash>-<factor>x.svg` beside the
+original — because the host rasterizes an SVG at the size its header declares and then scales that
+bitmap to the box it was given; without the variant a 200 % diagram is the same picture blurred
+(measured: one pixel of anti-aliasing becomes four), with it that pixel stays one. Nothing is
+rendered again: it is the same six kilobytes of picture with two numbers changed, and the factor in
+the name is the whole cache key. At or below 100 % the original is drawn, which is exact at 1:1 and
+a downscale below it.
 
 Four things can go wrong and none of them costs the reader the source. A binary that is missing is
 downloaded once — the only file this mod fetches from the internet, through `curl` because `fetch`
@@ -1006,6 +1033,7 @@ herdr-app check ~/.config/herdr-app/mods/artemis-tabs          # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status  # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-spaces        # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-files         # exit 0
+herdr-app check ~/.config/herdr-app/mods/artemis-files-zoom    # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-files-menu    # exit 0
 herdr-app check ~/.config/herdr-app/mods/sysmon                # exit 0
 herdr-app do layout.switch --name artemis
