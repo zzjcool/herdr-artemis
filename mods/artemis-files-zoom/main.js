@@ -23,14 +23,13 @@ const absolute = (path) => `${appHome()}/${path}`;
 // The host rasterizes an SVG once, at the size its header declares, and then scales that
 // bitmap to whatever box it is given — so the same picture painted at twice its own size
 // is the same picture blurred. A bigger look therefore asks for a bigger header: the same
-// bytes with the two attributes multiplied and the viewBox untouched, written beside the
+// bytes with the two attributes doubled and the viewBox untouched, written beside the
 // original so the rasterizer starts from as many pixels as the dialog will paint. The
-// factor is the whole cache key, because the answer is a pure function of the file, and a
-// variant is the same six kilobytes of picture as the one it was made from.
-async function dense(path, factor) {
-  const whole = Math.min(4, Math.max(2, Math.round(Number(factor) || 2)));
+// name says what is in it, because the answer is a pure function of the file, and the copy
+// is the same six kilobytes of picture as the one it was made from.
+async function dense(path) {
   const cut = path.lastIndexOf("/"), dir = path.slice(0, cut + 1), name = path.slice(cut + 1);
-  const variant = `${dir}${name.replace(/\.svg$/i, "")}-${whole}x.svg`;
+  const variant = `${dir}${name.replace(/\.svg$/i, "")}-2x.svg`;
   if (await fs.exists(absolute(variant)).catch(() => false)) return variant;
   const text = await fs.readFile(absolute(path), "utf8").catch(() => null);
   // A picture whose file cannot be read is drawn as it is: soft beats nothing.
@@ -42,8 +41,8 @@ async function dense(path, factor) {
   const height = /\bheight="([0-9]*\.?[0-9]+)"/i.exec(opening)?.[1];
   if (!width || !height) return path;
   const sized = opening
-    .replace(/\bwidth="[^"]*"/i, `width="${Math.round(Number(width) * whole)}"`)
-    .replace(/\bheight="[^"]*"/i, `height="${Math.round(Number(height) * whole)}"`);
+    .replace(/\bwidth="[^"]*"/i, `width="${Math.round(Number(width) * 2)}"`)
+    .replace(/\bheight="[^"]*"/i, `height="${Math.round(Number(height) * 2)}"`);
   const written = await fs.writeFile(absolute(variant), text.replace(opening, sized)).catch(() => null);
   return written === null ? path : variant;
 }
@@ -56,13 +55,12 @@ export default class Zoom extends View {
     // The body's own measured size, so fit() is a question about this dialog rather
     // than about the window, which a dialog only ever fills part of.
     this.box = null;
-    // The picture this scale drew from, the factor its header declares, the factor being
-    // written right now, and a generation so a slow write cannot land on a newer step.
+    // The file this dialog draws from: the original, or the dense copy of the same
+    // picture chosen once, while the first frame is still on screen. It is chosen once and
+    // never swapped while the person zooms — a new path is a new raster on the host, and a
+    // raster in the middle of a gesture is exactly the stutter a zoom must not have.
     this.art = null;
     this.artFor = null;
-    this.density = 1;
-    this.pending = 0;
-    this.generation = 0;
     this.handle = cx.focus_handle();
     // A dialog opens without the keyboard, so the keys below are dead until this lands;
     // one tick, once the overlay is really on screen.
@@ -102,6 +100,19 @@ export default class Zoom extends View {
     }
   }
 
+  // One read and one write, off the first frame: the copy this dialog will draw from for
+  // its whole life, so the host's one big raster lands while nobody is dragging a wheel.
+  prepare(path, cx) {
+    if (!path || this.artFor === path) return;
+    this.artFor = path;
+    cx.spawn(async cx => {
+      const art = await dense(path);
+      if (this.artFor !== path) return;
+      this.art = art === path ? null : art;
+      cx.notify();
+    });
+  }
+
   header(t, p, scale, cx) {
     const button = (id, label, on) =>
       h_flex().id(`zoom-${id}`).h(21).px(8).flex_none().items_center().justify_center().rounded(5).cursor_pointer()
@@ -130,34 +141,10 @@ export default class Zoom extends View {
     if (!path || !width || !height) return v_flex().id("zoom").track_focus(this.handle).size_full().min_h(0).p(14).bg(t.popover)
       .text_size(12).text_color(t.dim).child("Nothing to zoom here · click a diagram in a markdown page");
     const scale = this.current();
-    this.rendered = path;
-    // What this scale needs from the file: one whole multiple above 1:1, so the header
-    // declares at least the pixels the box will paint, and nothing below it. A denser copy
-    // than needed is drawn as it is — it can only be downscaled — so only a step up works.
-    const wanted = scale > 1.05 ? Math.min(4, Math.ceil(scale)) : 1;
-    if (wanted > this.density && wanted !== this.pending) {
-      const generation = (this.generation += 1), source = path;
-      this.pending = wanted;
-      // The file is read and written off this frame; a dialog must not wait on a disk.
-      cx.spawn(async cx => {
-        try {
-          const art = await dense(source, wanted);
-          // Another step, or another picture, has been asked for since: this answer is stale.
-          if (generation !== this.generation || this.rendered !== source) return;
-          this.pending = 0;
-          this.density = wanted;
-          if (art === source) return;
-          this.art = art; this.artFor = source;
-          cx.notify();
-        } catch {
-          // Whatever the disk said, the original is still on screen: a soft picture is
-          // better than a missing one, and the question is not asked again.
-          if (generation === this.generation) this.pending = 0;
-        }
-      });
-    }
-    // Below 1:1 the file itself is exactly right; above it, the dense copy once it exists.
-    const art = wanted > 1 && this.artFor === path && this.art ? this.art : path;
+    this.prepare(path, cx);
+    // The dense copy is a fixed 2x, so every step up to 200 % lands on real pixels and the
+    // ones past it are a bigger look at a picture rather than a sharper one.
+    const art = this.artFor === path && this.art ? this.art : path;
     // The canvas is never smaller than the dialog, so a picture that fits sits in the
     // middle of it; a bigger one overflows and starts at the top-left, which is what
     // scrolling needs — a centred overflow would put the left edge out of reach.
@@ -181,21 +168,29 @@ export default class Zoom extends View {
         cx.notify();
       })
       .child(this.header(t, p, scale, cx))
-      .child(div().id("zoom-body").flex_1().min_h(0).min_w(0).overflow_scrollbar()
-        .on_size_change((size, cx) => {
-          if (this.box && Math.abs(this.box.width - size.width) < 1 && Math.abs(this.box.height - size.height) < 1) return;
-          this.box = size;
-          cx.notify();
-        })
-        // A modifier means the wheel is this dialog's; without one it stays the scroll
-        // area's, so only the zoom branch stops the event on its way down.
-        .on_scroll_wheel((e, cx) => {
-          if (!(e.modifiers.platform || e.modifiers.control)) return;
-          this.scale = Math.min(MAX, Math.max(MIN, this.current() * Math.exp(-e.delta.y * 0.0025)));
-          cx.stop_propagation();
-          cx.notify();
-        })
-        .child(div().flex_none().w(canvas.width).h(canvas.height).flex().items_center().justify_center()
-          .child(image(art).flex_none().w(Math.max(1, Math.round(width * scale))).h(Math.max(1, Math.round(height * scale))))));
+      .child(
+        div().id("zoom-body").flex_1().min_h(0).min_w(0).overflow_scrollbar()
+          .on_size_change((size, cx) => {
+            if (this.box && Math.abs(this.box.width - size.width) < 1 && Math.abs(this.box.height - size.height) < 1) return;
+            this.box = size;
+            cx.notify();
+          })
+          // A bare wheel is the zoom this dialog exists for — proportional, so a notch near
+          // 400 % moves further than one near 50 %. ⌥ or ⇧ leaves it to the scroll area,
+          // which is how a picture bigger than the frame is panned on a trackpad; only the
+          // branch that consumed the wheel stops it on its way down.
+          .on_scroll_wheel((e, cx) => {
+            if (e.modifiers.alt || e.modifiers.shift) return;
+            this.scale = Math.min(MAX, Math.max(MIN, this.current() * Math.exp(-e.delta.y * 0.0025)));
+            cx.stop_propagation();
+            cx.notify();
+          })
+          .child(div().flex_none().w(canvas.width).h(canvas.height).flex().items_center().justify_center()
+            .child(image(art).flex_none().w(Math.max(1, Math.round(width * scale))).h(Math.max(1, Math.round(height * scale))))),
+      )
+      // The hint stays on screen rather than in a tooltip: a lightbox whose wheel does not
+      // scroll says so once, in the corner, and then stops explaining itself.
+      .child(h_flex().flex_none().h(24).px(14).items_center().justify_end().border_t(1).border_color(t.border)
+        .child(div().text_size(10).text_color(t.muted).child("wheel zooms · ⌥/⇧ wheel scrolls")));
   }
 }

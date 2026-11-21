@@ -75,8 +75,9 @@ and the corona read straight through the text.
   into a 7 MB binary, or is taken from a `PATH` that already has it; when it cannot be had, or a
   diagram's own colours cannot be read here, the fence stays the coloured code sheet it was with
   one dim line saying why — the words are never the price of a missing picture. Clicking a diagram
-  opens it in a dialog that zooms in steps and scrolls both ways — the same cached picture at a
-  larger size, never a second render — with Esc, a click beside it, or its own `✕` to close;
+  opens it in a dialog that zooms in steps or under the wheel and scrolls both ways — the same
+  cached picture at a larger size, never a second render — with Esc, a click beside it, or its own
+  `✕` to close;
 - no mod binds a key, and the diagram renderer above is the one thing fetched from the internet:
   the mark at the left of the status bar opens the app's settings on a click; the pane header
   (`artemis-pane`), the tab strip
