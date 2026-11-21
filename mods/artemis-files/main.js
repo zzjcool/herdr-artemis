@@ -520,62 +520,97 @@ export default class Files extends View {
     // the page's own scale, which is where Fit and a double-click put it back.
     const fit = iw && ih ? Math.min(width / iw, 480 / ih, 1) : 1;
     const zoom = block.zoom ?? 1, scale = fit * zoom;
-    const set = (next, cx) => {
-      const z = Math.min(6, Math.max(1, next));
-      if (Math.abs(z - zoom) < 0.004) return;
-      block.zoom = z;
-      cx.notify();
-    };
-    // The label rides at the picture's own left edge rather than the column's: the picture
-    // can be wider than the column, and a label that went with the column would be left
-    // behind at the far side of a page that had slid away from it.
+    // The label is the block's own: what the fence is, and how far into it the person has
+    // zoomed. It is what says a picture with no chrome can be moved at all.
     const label = (text, colour) => div().text_size(9.5).text_color(colour).child(text);
     const fitted = (cx) => div().text_size(9.5).text_color(t.dim).cursor_pointer().hover(s => s.text_color(t.foreground))
       .on_click(() => { block.zoom = 1; cx.notify(); }).child("Fit");
-    const head = (rowWidth, pictureWidth, cx, hint = true) => h_flex().flex_none().w(rowWidth).justify_center()
-      .child(h_flex().flex_none().w(pictureWidth).items_center().gap(7).pb(3).child(label("mermaid", t.dim))
-        .when(zoom > 1, el => el
-          .child(label(`${Math.round(scale * 100)}%`, t.muted))
-          .child(fitted(cx)))
-        .when(zoom === 1 && hint, el => el.child(label("⌘-scroll or pinch to zoom", t.muted))));
+    const head = (rowWidth, cx, hint = true) => h_flex().flex_none().w(rowWidth).items_center().gap(7).pb(3)
+      .child(label("mermaid", t.dim))
+      .when(zoom > 1, el => el
+        .child(label(`${Math.round(scale * 100)}%`, t.muted))
+        .child(label("drag to move", t.muted))
+        .child(fitted(cx)))
+      .when(zoom === 1 && hint, el => el.child(label("⌘-scroll or pinch to zoom", t.muted)));
     // A picture nothing could measure keeps its width and is clipped rather than scaled,
     // which is the rule a document's own picture already follows.
     // A picture nothing could measure has no gestures attached to it, so its label says
     // nothing about them either.
     if (!iw || !ih) return v_flex().flex_none().mb(10).w(width)
-      .child(head(width, width, cx, false))
+      .child(head(width, cx, false))
       .child(h_flex().flex_none().w(width).justify_center().child(
         div().flex_none().max_h(480).overflow_hidden().child(image(block.picture.path).w(width))));
+    // The box is the size the picture has at the column's own scale, and it never grows:
+    // a zoom is a closer look inside this box, not a taller page. What moves is the
+    // picture inside it — centred at the page's scale, and wherever the person dragged it
+    // above it — and the box clips whatever hangs over.
     const w = Math.max(1, Math.round(iw * scale)), h = Math.max(1, Math.round(ih * scale));
-    // The block is the column's width and never a pixel more: a wider one would put a
-    // horizontal bar under a page nobody zoomed. A picture zoomed past the column is
-    // carried by the block itself — its box stays put and scrolls sideways, and its height
-    // grows, which the page's own vertical wheel already knows how to follow.
-    const row = width;
-    const frame = div().id(`files-diagram-${index}`).flex_none().w(width).min_w(0).rounded(8).hover(s => s.bg(t.hover))
-      .when(zoom > 1, el => el.overflow_x_scrollbar())
+    const fitH = Math.max(1, Math.round(ih * fit));
+    const frameH = fitH;
+    // A number in a box of `span` that may be smaller than its content: the content's own
+    // edge at one end, the box's at the other, and no number outside that.
+    const inside = (value, span) => Math.min(Math.max(0, span), Math.max(Math.min(0, span), value));
+    const place = (ww, hh) => {
+      if (zoom <= 1) return { x: Math.round((width - ww) / 2), y: Math.round((frameH - hh) / 2) };
+      return {
+        x: Math.round(inside(block.pan?.x ?? (width - ww) / 2, width - ww)),
+        y: Math.round(inside(block.pan?.y ?? (frameH - hh) / 2, frameH - hh)),
+      };
+    };
+    // A zoom keeps the point under the pointer where it is: that point, in the picture's
+    // own pixels, is what stays put while the scale changes around it. A gesture with no
+    // pointer in it (the buttons) keeps the middle of the box instead.
+    const zoomAt = (next, at, cx) => {
+      const z = Math.min(6, Math.max(1, next));
+      if (Math.abs(z - zoom) < 0.004) return;
+      const here = place(w, h), ratio = z / zoom;
+      const point = at ?? { x: width / 2, y: frameH / 2 };
+      block.pan = {
+        x: point.x - (point.x - here.x) * ratio,
+        y: point.y - (point.y - here.y) * ratio,
+      };
+      block.zoom = z;
+      cx.notify();
+    };
+    const at = place(w, h);
+    const frame = div().id(`files-diagram-${index}`).flex_none().relative().w(width).h(frameH)
+      .overflow_hidden().rounded(8).hover(s => s.bg(t.hover))
       // A bare wheel belongs to the page: a reader scrolling a document must not zoom a
-      // picture they merely pass the pointer over, and a page that stopped scrolling under
-      // a diagram would read as a broken page. ⌘ (or ⌥) with the wheel is the zoom a mouse
-      // gets; a trackpad pinches instead, and neither takes the reader's scroll away.
+      // picture they merely pass the pointer over. ⌘ (or ⌥) with the wheel is the zoom a
+      // mouse gets; a trackpad pinches instead, and neither takes the scroll away.
       .on_scroll_wheel((e, cx) => {
         if (!(e.modifiers.platform || e.modifiers.alt)) return;
-        const next = Math.min(6, Math.max(1, zoom * Math.exp(-e.delta.y * 0.0025)));
-        if (Math.abs(next - zoom) < 0.004) return;
-        block.zoom = next;
-        cx.notify();
+        zoomAt(zoom * Math.exp(-e.delta.y * 0.0025), e.local_position, cx);
         cx.stop_propagation();
       })
       // A trackpad's two-finger pinch, which no scroll area takes: 0.1 is a tenth larger.
-      .on_pinch((e, cx) => { set(zoom * (1 + e.delta), cx); cx.stop_propagation(); })
-      // Two presses put it back to the page's scale; a picture with one small label has no
-      // room to say so, and a double-click is what a person tries.
-      .on_mouse_down("left", (e, cx) => { if (e.click_count >= 2) { block.zoom = 1; cx.notify(); } })
-      .child(h_flex().flex_none().w(zoom > 1 ? w : width).justify_center().child(block.picture.card
+      .on_pinch((e, cx) => { zoomAt(zoom * (1 + e.delta), e.local_position, cx); cx.stop_propagation(); })
+      // Dragging moves the picture under the box, which is the only way to read the part of
+      // a zoomed diagram that hangs over an edge. Two presses put it back to the page's
+      // scale; a picture with one small label has no room to say so, and a double-click is
+      // what a person tries.
+      .on_mouse_down("left", (e, cx) => {
+        if ((e.click_count ?? 1) >= 2) { block.zoom = 1; block.pan = null; cx.notify(); return; }
+        if (zoom <= 1 || !e.local_position) return;
+        block.drag = { x: e.local_position.x, y: e.local_position.y, at };
+        cx.stop_propagation();
+      })
+      .on_mouse_move((e, cx) => {
+        const drag = block.drag;
+        if (!drag) return;
+        const lp = e.local_position;
+        // A pointer that left the box is a released drag this mod will never see end; the
+        // picture stops following it rather than jumping when it comes back.
+        if (!lp || lp.x < 0 || lp.y < 0 || lp.x > width || lp.y > frameH) { block.drag = null; return; }
+        block.pan = { x: drag.at.x + (lp.x - drag.x), y: drag.at.y + (lp.y - drag.y) };
+        cx.notify();
+      })
+      .on_mouse_up("left", () => { block.drag = null; })
+      .child(h_flex().flex_none().absolute().left(at.x).top(at.y).child(block.picture.card
         ? div().flex_none().rounded(8).overflow_hidden().child(image(block.picture.path).w(w).h(h))
         : image(block.picture.path).w(w).h(h)));
-    return v_flex().flex_none().mb(10).w(row)
-      .child(head(row, zoom > 1 ? width : w, cx))
+    return v_flex().flex_none().mb(10).w(width)
+      .child(head(width, cx))
       .child(frame);
   }
 

@@ -620,15 +620,23 @@ as a broken page — which is exactly what the first version of this did, with a
 container as well. `Fit`, or a double-click, puts it back.
 
 Nothing opens over the page, and the page keeps the scrolling it always had: vertical only
-(`overflow_y_scrollbar`). A zoomed picture is carried by its own block instead — the block stays the
-column's width and never a pixel more (one pixel would put a horizontal bar under a page nobody
-zoomed), and while it is zoomed it scrolls sideways inside itself (`overflow_x_scrollbar`) with a
-height that grows, so the page's vertical wheel follows it the way it follows a long paragraph. A
-page-level both-axis container was the first try and it took the reader's vertical wheel away; the
-block-level bar is the one that costs nothing. Prose, code sheets and a document's pictures are
-pinned to the column's width, so the width of one zoomed diagram cannot stretch the paragraphs
-around it. The label rides at the picture's own left edge (`mermaid`, then `NN %` and `Fit` while it
-is zoomed, then `scroll or pinch to zoom` at rest).
+(`overflow_y_scrollbar`). The block itself is the viewpoint — a box the width of the column and the
+height the picture has at the column's own scale (`fitH`), `relative` and `overflow_hidden`, with
+the picture absolutely placed inside it. It never grows with the zoom, so the page never reflows
+under the reader and no bar appears anywhere: a zoom is a closer look inside the same box, and what
+moves is the picture. Where it sits is two numbers, `block.pan`, centred at the page's scale and
+otherwise wherever the last zoom or drag left it, clamped so the box never shows paper beyond the
+picture's edge. A zoom is anchored at the pointer — the point under it, in the picture's own pixels,
+is what stays still while the scale changes around it (`left' = p - (p - left) × ratio`), and a
+button press, which has no pointer in it, anchors at the middle of the box instead. Dragging the
+picture with the left button moves it under the box, which is the only way to read the part that
+hangs over an edge; a drag the pointer leaves ends there rather than jumping when it comes back.
+
+A page-level both-axis container was the first try and it took the reader's vertical wheel away, and
+an earlier version made the picture grow the page — both read as a broken page. Prose, code sheets
+and a document's pictures are pinned to the column's width, so the width of one zoomed diagram
+cannot stretch the paragraphs around it. The label is the block's own — `mermaid`, then `NN %`,
+`drag to move` and `Fit` while zoomed, then `⌘-scroll or pinch to zoom` at rest.
 
 The picture is drawn from the same cached SVG, so zooming costs no render at all: above the
 picture's own pixels it is a bigger look rather than a sharper one, which `image()` cannot avoid —
