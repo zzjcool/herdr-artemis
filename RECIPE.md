@@ -327,7 +327,7 @@ mods/artemis-tabs/            main.js, mod.json {"place":"none","title":"Artemis
 mods/artemis-workspace-status/  main.js, mod.json {"place":"none","title":"Artemis workspace status"}
 mods/artemis-spaces/          main.js, mod.json {"place":"none","title":"Artemis spaces"}
 mods/artemis-agents/          main.js, mod.json {"place":"none","title":"Agents"}
-mods/artemis-files/           main.js, preview.js, mod.json {"place":"none"},
+mods/artemis-files/           main.js, preview.js, mmdr.js, mod.json {"place":"none"},
                               file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
 mods/artemis-menu/            main.js, mod.json {"place":"none","title":"Artemis menu"} + 10 svg
@@ -483,8 +483,10 @@ header — **Rendered** and **Source** — and the choice is remembered in
 next time. Source is the same read-only editor a `.js` gets, built on the way into the mode rather
 than in `render`, since `EditorState.new` needs a live host call.
 
-The sidebar is a third of a thousand pixels wide, which is not a width to read a table in, so the
-header carries **expand**: `run("tab.new", { name: file, mod: "artemis-files", props: { wide: true,
+The sidebar is a third of a thousand pixels wide, which is not a width to read a table in, and a
+wide `flowchart LR` fitted into 320 px is a shape rather than a reading — the diagram is scaled to
+the page, never enlarged, so the only way to read it is a wider page, and the ↗ tab reuses the same
+cached SVG at 1:1 without drawing it again. That is why the header carries **expand**: `run("tab.new", { name: file, mod: "artemis-files", props: { wide: true,
 file, root, on } })` — a **tab**, the host's own pane, not a floating window. The tab is handed its
 file through `props()`, which is empty in `init` (an `after(120)` timer is when it is filled), and it
 draws the same page with no tree and a size larger. A tab brings its own frame, its own close button
@@ -567,10 +569,68 @@ quote), because what a reader loses when a block leaves a quote is that it was i
 ends before its closing fence does is left as prose rather than guessed at, which is the same rule as
 the fence reader: never consume a block you cannot close.
 
-Past sixty fences the page goes back to the host's renderer in one piece, because every fence is a
-retained editor built in one pass. Measured, that costs only colours: `TextView.markdown` already
-draws a fence as a bordered sheet with the language in the corner, down to the padding — the hybrid
-exists for the token colouring it will not do, and for nothing else.
+Past sixty fences that are not mermaid the page goes back to the host's renderer in one piece,
+because every fence is a retained editor built in one pass. For those fences that costs only
+colours: `TextView.markdown` already draws a fence as a bordered sheet with the language in the
+corner, down to the padding — the hybrid exists for the token colouring it will not do, and for
+nothing else. A mermaid fence is no longer one of them in that count: it costs a process and a
+picture, so the page carries two budgets — sixty fences that are not diagrams, and forty diagrams
+inside that — in `fences.length - diagrams > 60 || diagrams > 40`.
+
+**A mermaid fence is drawn, not coloured.** `lang === "mermaid"` becomes the block kind `diagram`,
+which keeps no `EditorState` at all — the sheet of source is built only if the picture cannot be —
+and `loadDiagrams()` walks the page after it is on screen exactly as `loadImages()` does, one fence
+at a time because each one is a process. The process is **mmdr** (mermaid-rs-renderer 0.3.1): a
+3.3 MB archive that unpacks to a 7 MB pure-Rust binary, which writes SVG in a few milliseconds and
+which Herdr's own `image()` rasterizes with resvg — no browser, no node, no DOM. `image()` reads
+only from Herdr's folder, so the SVG lands in `data/artemis-files/diagram/`, named by the SHA-1 of
+`mmdr0.3.1/card + theme + font + source`: the name describes the *request*, not the bytes, and the
+tag in it is what makes a new renderer or a change to this rule start from an empty cache. The
+canvas is asked to be transparent (`{"themeVariables":{"background":"#00000000"}}`), or the
+renderer's own theme paints a floor inside the panel's smoke. Its palette follows the window rather
+than the document — `dark` when `theme().background` (then `canvas`, then `foreground`) is dark,
+`default` when it is not, which is the rule the rest of the window follows — and the labels take the
+person's `font_family`, so a diagram is not the one thing on the page set in another typeface. A
+document that pins its own theme in `%%{init: …}%%` keeps it, because that is mermaid's rule and not
+this mod's business.
+
+**A few types bring their own light palette** — a gantt's bars, a timeline's event boxes, a quadrant
+chart's four panels — and the renderer keeps it whatever `-t` says, while the words still follow the
+theme. On a dark window that is light words on light bands: a picture of nothing. So the picture is
+read back
+after it is drawn — the `<rect>` fills, in every spelling the renderer writes (`#rgb`, `#rrggbb`,
+`rgb()`, `hsl()`, the few names it uses), with the zero-opacity and `none` ones left out — and when
+light bands outnumber dark ones the diagram is drawn once more on a **card**: `-t default` with an
+opaque `#f7f7f7` background, which is mermaid's own printout, dark words on paper. That is decided
+from the picture, not from a table of types to maintain, and `diagram()` answers `card` so the panel
+can clip the paper to the layout's 8 px corner instead of leaving a square in the smoke. A light
+window needs no card: transparent on a light surface is already the right ground. The config that
+asks for paper is its own file (`card-<theme>-<8 hex of the font>.json`), because the font is part
+of the request and a page drawn in another face must not reuse a config written for the old one. The
+second render is deterministic, so the file stays right under the name it was asked for.
+
+Four things can go wrong and none of them costs the reader the source. A binary that is missing is
+downloaded once — the only file this mod fetches from the internet, through `curl` because `fetch`
+here carries text and json and no bytes, pinned by version and by the sha256 of the archive, which is
+what makes it trustworthy rather than the transport — after looking for one on `PATH` first, since a
+person who installed mmdr themselves already chose their version; the probe has to answer like mmdr
+to count, and a render that fails off a `PATH` binary says `(mmdr on PATH)` so the two are told
+apart. A download that does not match its checksum is deleted rather than unpacked, one that cannot
+run loses both the binary and its version file, and a platform with no published build is named in
+the sentence it shows. A type the renderer does not know, or source it cannot parse, exits non-zero
+and the last line of its stderr becomes the note with the CLI's `error:` stripped off, because the
+panel speaks in the panel's voice: `mermaid · unknown or missing Mermaid diagram header`. A picture
+that is still light on light after the card — a document pinning a palette of its own — is deleted
+rather than cached and says `mermaid · this diagram's own colours cannot be read here`. Either way
+the fence falls back to the same bordered sheet and the same coloured editor it had before this
+existed, prefixed by that one dim line — `mermaid · <why>` — and the failure is remembered for the
+session, so a page that is scrolled does not start a process a frame, and a failed install is
+remembered too, so an offline machine does not wait a minute per fence. The diagram cache is a
+folder of 240 names kept newest-first in `shared("artemis-files.diagrams")`, the rest unlinked, the
+same way the picture cache is trimmed — a preview folder, not an archive.
+
+A preview of a **remote** space draws on this machine: the document's text is what comes over the
+connection, so only the panel that shows it needs a renderer, and its SVG cache is here too.
 
 Two more things the host cannot do inside a document, and the cut solves both. A **picture** becomes
 a block in every spelling a document writes it: `![](shot.png)`, the HTML `<img src="…">`, the
