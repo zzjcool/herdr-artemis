@@ -547,12 +547,13 @@ export default class Files extends View {
       .child(h_flex().flex_none().w(width).justify_center().child(
         div().flex_none().max_h(480).overflow_hidden().child(image(block.picture.path).w(width))));
     const w = Math.max(1, Math.round(iw * scale)), h = Math.max(1, Math.round(ih * scale));
-    // The row is the column's width or the picture's, whichever is wider — never a pixel
-    // more, because one pixel over the column would put a horizontal bar under a page
-    // nobody zoomed. The frame carries no border for the same reason: its 1 px would be
-    // that pixel. Hover is a wash behind the picture instead, which moves nothing.
-    const row = Math.max(width, w);
-    const frame = div().id(`files-diagram-${index}`).flex_none().rounded(8).hover(s => s.bg(t.hover))
+    // The block is the column's width and never a pixel more: a wider one would put a
+    // horizontal bar under a page nobody zoomed. A picture zoomed past the column is
+    // carried by the block itself — its box stays put and scrolls sideways, and its height
+    // grows, which the page's own vertical wheel already knows how to follow.
+    const row = width;
+    const frame = div().id(`files-diagram-${index}`).flex_none().w(width).min_w(0).rounded(8).hover(s => s.bg(t.hover))
+      .when(zoom > 1, el => el.overflow_x_scrollbar())
       // A bare wheel is the zoom; ⌥ or ⇧ leaves it to the page, which is how a page is
       // scrolled with the pointer sitting on a picture. At the floor there is nothing left
       // to zoom out of, so the wheel is the page's again instead of being swallowed.
@@ -569,12 +570,12 @@ export default class Files extends View {
       // Two presses put it back to the page's scale; a picture with one small label has no
       // room to say so, and a double-click is what a person tries.
       .on_mouse_down("left", (e, cx) => { if (e.click_count >= 2) { block.zoom = 1; cx.notify(); } })
-      .child(block.picture.card
+      .child(h_flex().flex_none().w(zoom > 1 ? w : width).justify_center().child(block.picture.card
         ? div().flex_none().rounded(8).overflow_hidden().child(image(block.picture.path).w(w).h(h))
-        : image(block.picture.path).w(w).h(h));
+        : image(block.picture.path).w(w).h(h)));
     return v_flex().flex_none().mb(10).w(row)
-      .child(head(row, w, cx))
-      .child(h_flex().flex_none().w(row).justify_center().child(frame));
+      .child(head(row, zoom > 1 ? width : w, cx))
+      .child(frame);
   }
 
   // A link in a rendered page: an address goes to the system browser, a path opens in
@@ -1056,10 +1057,9 @@ export default class Files extends View {
         .p(10)
         .child(TextView.markdown(`files-md-all-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
       .when(this.markdown !== null && this.mdMode === "rendered" && Boolean(this.blocks), el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(prose)
-        // Both ways, because a diagram zoomed past the column is wider than the page: the
-        // page is what carries it, and every other block is pinned to the column so the
-        // width of one picture cannot stretch the prose around it.
-        .overflow_scrollbar().p(10)
+        // Vertically, as before: a zoomed diagram is carried by its own block, not by the
+        // page — the page growing sideways is what took the wheel away from the reader.
+        .overflow_y_scrollbar().p(10)
         .on_size_change((size, cx) => {
           if (Math.abs((this.mdBox ?? 0) - size.width) < 1) return;
           this.mdBox = size.width;

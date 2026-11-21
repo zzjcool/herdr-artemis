@@ -618,13 +618,16 @@ scroll area takes; ⌥ or ⇧ with the wheel leaves it to the page, so a page ca
 the pointer sitting on a picture, and at the floor there is nothing left to zoom out of, so the
 wheel is the page's again rather than being swallowed. `Fit`, or a double-click, puts it back.
 
-Nothing opens over the page. The drawn size is `iw * fit * zoom`, so a bigger picture is simply a
-bigger element: the page's own container scrolls both ways (`overflow_scrollbar`) and carries it,
-and every other block — prose, a code sheet, a document's picture — is pinned to the column's width
-so that the width of one zoomed diagram cannot stretch the paragraphs around it. The label under the
-corner rides at the picture's own left edge (`mermaid`, then `NN %` and `Fit` while it is zoomed,
-then `scroll or pinch to zoom` at rest), because a label that went with the column would be left
-behind at the far side of a page that had slid away from it.
+Nothing opens over the page, and the page keeps the scrolling it always had: vertical only
+(`overflow_y_scrollbar`). A zoomed picture is carried by its own block instead — the block stays the
+column's width and never a pixel more (one pixel would put a horizontal bar under a page nobody
+zoomed), and while it is zoomed it scrolls sideways inside itself (`overflow_x_scrollbar`) with a
+height that grows, so the page's vertical wheel follows it the way it follows a long paragraph. A
+page-level both-axis container was the first try and it took the reader's vertical wheel away; the
+block-level bar is the one that costs nothing. Prose, code sheets and a document's pictures are
+pinned to the column's width, so the width of one zoomed diagram cannot stretch the paragraphs
+around it. The label rides at the picture's own left edge (`mermaid`, then `NN %` and `Fit` while it
+is zoomed, then `scroll or pinch to zoom` at rest).
 
 The picture is drawn from the same cached SVG, so zooming costs no render at all: above the
 picture's own pixels it is a bigger look rather than a sharper one, which `image()` cannot avoid —
