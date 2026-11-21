@@ -330,7 +330,6 @@ mods/artemis-agents/          main.js, mod.json {"place":"none","title":"Agents"
 mods/artemis-files/           main.js, preview.js, mmdr.js, mod.json {"place":"none"},
                               file/folder/chevron svgs
 mods/artemis-files-menu/      main.js, mod.json {"place":"none"}, download/copy.svg
-mods/artemis-files-zoom/      main.js, mod.json {"place":"none","title":"Diagram"}
 mods/artemis-menu/            main.js, mod.json {"place":"none","title":"Artemis menu"} + 10 svg
 mods/sysmon/                  main.js, mod.json {"place":"none","title":"System monitor"}
 ```
@@ -610,37 +609,30 @@ asks for paper is its own file (`card-<theme>-<8 hex of the font>.json`), becaus
 of the request and a page drawn in another face must not reuse a config written for the old one. The
 second render is deterministic, so the file stays right under the name it was asked for.
 
-**The page still fits the diagram, and the picture is a door.** Fitting is right — a 1400 px
-diagram must not push the prose sideways — but a sequence diagram with six participants arrives
-at 30–60 % with its labels at five or ten pixels, so a click on the picture opens
-`mods/artemis-files-zoom` as a dialog over the dimmed window (`kind: "dialog"`, 94 % by 90 % of
-it, which the host centres and which Esc or a click beside closes). Nothing is rendered again for
-it: the dialog draws the cached SVG with `image()` at a bigger `.w()/.h()`, and the corner above
-every picture says so — `mermaid · click to zoom`, the code sheet's own habit of naming what the
-block is. Its scale is `null` until a step is taken, which means **Fit**: `min(box/iw, box/ih,
-1)` against the dialog's own measured body and never enlarged on open, the same rule the page
-follows. `−` and `+` walk the steps 50 %, 75 %, 100 %, 125 %, 150 %, 200 %, 300 % and 400 % from
-wherever the picture is — not from the last step pressed, so a fitted 34 % goes to 50 % — `Fit`
-and the `0` key return to the page's rule, Esc closes, and a bare wheel zooms continuously
-between 25 % and 600 %. ⌥ or ⇧ keeps the wheel for the scroll area, which is how a picture bigger
-than the frame is panned on a trackpad; only the branch that consumed the wheel stops it. The
-body scrolls both ways (`overflow_scrollbar`) and its canvas is never smaller than the dialog: a
-picture that fits sits in the middle of it, a bigger one overflows and starts at the top-left,
-which a flex centre alone would put out of reach. The picture keeps its own paper when it is a
-card, so the dialog paints `popover` and nothing behind it. The picture it draws is a dense copy
-of the same SVG, whose header declares twice the pixels — `width` and `height` multiplied, the
-`viewBox` untouched, written once as `<hash>-2x.svg` beside the original — because the host
-rasterizes an SVG at the size its header declares and then scales that bitmap to the box it was
-given: the original at 200 % is the same picture blurred (measured: one pixel of anti-aliasing
-becomes four), the double-width header is not. Nothing is rendered again — it is the same six
-kilobytes of picture with two numbers changed, and the name is the whole cache key. The copy is
-chosen once, while the dialog's first frame is still on screen, and never swapped afterwards: a
-new path is a new raster on the host, and a raster under the wheel is the stutter a zoom must not
-have. So every size the dialog paints up to 200 % is a downscale of real pixels; past it the
-picture is a bigger look at a diagram rather than a sharper one, which is what 400 % is for. A
-file that declares no size of its own (`width="100%"`) gets no copy and is drawn as it is. The
-hint in the corner — `wheel zooms · ⌥/⇧ wheel scrolls` — is there because a lightbox whose wheel
-does not scroll is worth saying once.
+**The page still fits the diagram, and the picture zooms where it stands.** Fitting is right — a
+1400 px diagram must not push the prose sideways — but a sequence diagram with six participants
+arrives at 30–60 % with its labels at five or ten pixels, so the picture is a zoom surface itself.
+A bare wheel over it scales it in place, proportionally between 1× and 6× of the column's fit; a
+trackpad's two-finger pinch does the same through `on_pinch` (`0.1` is a tenth larger), which no
+scroll area takes; ⌥ or ⇧ with the wheel leaves it to the page, so a page can still be scrolled with
+the pointer sitting on a picture, and at the floor there is nothing left to zoom out of, so the
+wheel is the page's again rather than being swallowed. `Fit`, or a double-click, puts it back.
+
+Nothing opens over the page. The drawn size is `iw * fit * zoom`, so a bigger picture is simply a
+bigger element: the page's own container scrolls both ways (`overflow_scrollbar`) and carries it,
+and every other block — prose, a code sheet, a document's picture — is pinned to the column's width
+so that the width of one zoomed diagram cannot stretch the paragraphs around it. The label under the
+corner rides at the picture's own left edge (`mermaid`, then `NN %` and `Fit` while it is zoomed,
+then `scroll or pinch to zoom` at rest), because a label that went with the column would be left
+behind at the far side of a page that had slid away from it.
+
+The picture is drawn from the same cached SVG, so zooming costs no render at all: above the
+picture's own pixels it is a bigger look rather than a sharper one, which `image()` cannot avoid —
+the host rasterizes an SVG at the size its header declares — and at the column's fit a diagram
+usually has that headroom to spare (a 937 px diagram in a 300 px panel is at 32 %, so it stays
+sharp to roughly 3× before it is past its own pixels). A picture nothing could measure keeps the
+old rule: its width, clipped at 480 px, and no gestures at all — no zoom is offered where none
+could be acted on.
 
 Four things can go wrong and none of them costs the reader the source. A binary that is missing is
 downloaded once — the only file this mod fetches from the internet, through `curl` because `fetch`
@@ -1039,7 +1031,6 @@ herdr-app check ~/.config/herdr-app/mods/artemis-tabs          # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status  # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-spaces        # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-files         # exit 0
-herdr-app check ~/.config/herdr-app/mods/artemis-files-zoom    # exit 0
 herdr-app check ~/.config/herdr-app/mods/artemis-files-menu    # exit 0
 herdr-app check ~/.config/herdr-app/mods/sysmon                # exit 0
 herdr-app do layout.switch --name artemis

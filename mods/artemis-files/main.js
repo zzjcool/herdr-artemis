@@ -474,8 +474,8 @@ export default class Files extends View {
     else if (wantW) w = Math.min(wantW, width);
     // A size the header did not give is not a licence to take the whole page: the
     // picture is still capped, it just gets clipped rather than scaled.
-    if (!h) return div().flex_none().mb(10).max_h(480).overflow_hidden().child(image(block.picture.path).w(w));
-    return h_flex().flex_none().mb(10).justify_center().child(image(block.picture.path).w(w).h(h));
+    if (!h) return div().flex_none().mb(10).w(width).max_h(480).overflow_hidden().child(image(block.picture.path).w(w));
+    return h_flex().flex_none().mb(10).w(width).justify_center().child(image(block.picture.path).w(w).h(h));
   }
 
   // A diagram's palette follows the window rather than the document: the renderer's
@@ -500,7 +500,7 @@ export default class Files extends View {
   // the page has room for, capped, never enlarged past its own pixels — and when there
   // is no picture it is the sheet of source it would have been, with one dim line
   // saying why. A diagram must never cost the reader the words it was written from.
-  diagramBlock(block, index) {
+  diagramBlock(block, index, cx) {
     if (block.status === "failed") {
       const t = theme();
       // A sheet needs an editor, and an editor is a host call that can fail too; the
@@ -514,33 +514,67 @@ export default class Files extends View {
       .text_size(11).text_color(t.dim).child("mermaid · drawing…");
     const { width: iw, height: ih } = block.picture;
     // A wide diagram fitted to the column is a shape rather than a reading, so the picture
-    // is a door as well as a picture: one click opens it in the zoom dialog, drawn from
-    // the same cached SVG — nothing is rendered a second time for a bigger look.
-    const zoom = () => openOverlay({
-      mod: "artemis-files-zoom", kind: "dialog", width: 0.94, height: 0.9,
-      props: { path: block.picture.path, width: iw ?? null, height: ih ?? null, name: (this.file ?? "").split("/").pop() },
-    });
-    // The corner label is the code sheet's own habit — a fence says what it is — and this
-    // one says what it does. The frame is there from the start at the theme's hover wash,
-    // so the picture does not move when the pointer arrives; only its colour changes.
-    const framed = (child) => h_flex().flex_none().justify_center()
-      .child(div().id(`files-diagram-${index}`).flex_none().rounded(8).cursor_pointer()
-        .border_1().border_color(t.hover).hover(s => s.border_color(t.border))
-        .on_click(() => zoom())
-        .child(block.picture.card ? div().flex_none().rounded(8).overflow_hidden().child(child) : child));
-    // The label belongs to the picture, not to the page: it is as wide as the frame and
-    // right-aligned inside it, so a narrow diagram does not push its own name to the
-    // window's edge. A picture nothing could measure keeps its width and is clipped rather
-    // than scaled, which is the rule a document's own picture already follows.
-    const head = (box) => h_flex().flex_none().w(box).justify_end().pb(3)
-      .child(div().text_size(9.5).text_color(t.dim).child("mermaid · click to zoom"));
-    if (!iw || !ih) return v_flex().flex_none().mb(10).items_center()
-      .child(head(width + 2))
-      .child(framed(div().flex_none().max_h(480).overflow_hidden().child(image(block.picture.path).w(width))));
-    const scale = Math.min(width / iw, 480 / ih, 1);
-    const box = Math.max(1, Math.round(iw * scale)), tall = Math.max(1, Math.round(ih * scale));
-    const picture = image(block.picture.path).w(box).h(tall);
-    return v_flex().flex_none().mb(10).items_center().child(head(box + 2)).child(framed(picture));
+    // zooms where it stands: a wheel or a trackpad's pinch makes it bigger, the page scrolls
+    // both ways to carry it, and nothing opens over the page. `fit` is the column's rule and
+    // `zoom` the person's on top of it; the product is what is drawn, and 1 is the floor —
+    // the page's own scale, which is where Fit and a double-click put it back.
+    const fit = iw && ih ? Math.min(width / iw, 480 / ih, 1) : 1;
+    const zoom = block.zoom ?? 1, scale = fit * zoom;
+    const set = (next, cx) => {
+      const z = Math.min(6, Math.max(1, next));
+      if (Math.abs(z - zoom) < 0.004) return;
+      block.zoom = z;
+      cx.notify();
+    };
+    // The label rides at the picture's own left edge rather than the column's: the picture
+    // can be wider than the column, and a label that went with the column would be left
+    // behind at the far side of a page that had slid away from it.
+    const label = (text, colour) => div().text_size(9.5).text_color(colour).child(text);
+    const fitted = (cx) => div().text_size(9.5).text_color(t.dim).cursor_pointer().hover(s => s.text_color(t.foreground))
+      .on_click(() => { block.zoom = 1; cx.notify(); }).child("Fit");
+    const head = (rowWidth, pictureWidth, cx, hint = true) => h_flex().flex_none().w(rowWidth).justify_center()
+      .child(h_flex().flex_none().w(pictureWidth).items_center().gap(7).pb(3).child(label("mermaid", t.dim))
+        .when(zoom > 1, el => el
+          .child(label(`${Math.round(scale * 100)}%`, t.muted))
+          .child(fitted(cx)))
+        .when(zoom === 1 && hint, el => el.child(label("scroll or pinch to zoom", t.muted))));
+    // A picture nothing could measure keeps its width and is clipped rather than scaled,
+    // which is the rule a document's own picture already follows.
+    // A picture nothing could measure has no gestures attached to it, so its label says
+    // nothing about them either.
+    if (!iw || !ih) return v_flex().flex_none().mb(10).w(width)
+      .child(head(width, width, cx, false))
+      .child(h_flex().flex_none().w(width).justify_center().child(
+        div().flex_none().max_h(480).overflow_hidden().child(image(block.picture.path).w(width))));
+    const w = Math.max(1, Math.round(iw * scale)), h = Math.max(1, Math.round(ih * scale));
+    // The row is the column's width or the picture's, whichever is wider — never a pixel
+    // more, because one pixel over the column would put a horizontal bar under a page
+    // nobody zoomed. The frame carries no border for the same reason: its 1 px would be
+    // that pixel. Hover is a wash behind the picture instead, which moves nothing.
+    const row = Math.max(width, w);
+    const frame = div().id(`files-diagram-${index}`).flex_none().rounded(8).hover(s => s.bg(t.hover))
+      // A bare wheel is the zoom; ⌥ or ⇧ leaves it to the page, which is how a page is
+      // scrolled with the pointer sitting on a picture. At the floor there is nothing left
+      // to zoom out of, so the wheel is the page's again instead of being swallowed.
+      .on_scroll_wheel((e, cx) => {
+        if (e.modifiers.alt || e.modifiers.shift) return;
+        const next = Math.min(6, Math.max(1, zoom * Math.exp(-e.delta.y * 0.0025)));
+        if (Math.abs(next - zoom) < 0.004) return;
+        block.zoom = next;
+        cx.notify();
+        cx.stop_propagation();
+      })
+      // A trackpad's two-finger pinch, which no scroll area takes: 0.1 is a tenth larger.
+      .on_pinch((e, cx) => { set(zoom * (1 + e.delta), cx); cx.stop_propagation(); })
+      // Two presses put it back to the page's scale; a picture with one small label has no
+      // room to say so, and a double-click is what a person tries.
+      .on_mouse_down("left", (e, cx) => { if (e.click_count >= 2) { block.zoom = 1; cx.notify(); } })
+      .child(block.picture.card
+        ? div().flex_none().rounded(8).overflow_hidden().child(image(block.picture.path).w(w).h(h))
+        : image(block.picture.path).w(w).h(h));
+    return v_flex().flex_none().mb(10).w(row)
+      .child(head(row, w, cx))
+      .child(h_flex().flex_none().w(row).justify_center().child(frame));
   }
 
   // A link in a rendered page: an address goes to the system browser, a path opens in
@@ -579,7 +613,7 @@ export default class Files extends View {
     const height = Math.round((visual + 0.35) * size * 1.55) + 6;
     // A sheet lifted out of a quote is indented and says so in its corner, because the
     // one thing a reader loses when a block leaves the quote is that it was in one.
-    return v_flex().id(`files-code-${index}`).flex_none().mb(10).rounded(6).border_1().border_color(t.border).overflow_hidden()
+    return v_flex().id(`files-code-${index}`).flex_none().mb(10).w(width).rounded(6).border_1().border_color(t.border).overflow_hidden()
       .when(Boolean(block.quote), el => el.ml(8))
       .child(h_flex().flex_none().px(8).pt(5).pb(1).justify_end()
         .child(div().text_size(9.5).text_color(t.dim).child(`${block.quote ? `${block.quote} ` : ""}${block.lang}`)))
@@ -1022,7 +1056,10 @@ export default class Files extends View {
         .p(10)
         .child(TextView.markdown(`files-md-all-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, this.markdown).scrollable(true).selectable(true).size_full())))
       .when(this.markdown !== null && this.mdMode === "rendered" && Boolean(this.blocks), el => el.child(v_flex().id("files-md").flex_1().min_h(0).min_w(0).text_size(prose)
-        .overflow_y_scrollbar().p(10)
+        // Both ways, because a diagram zoomed past the column is wider than the page: the
+        // page is what carries it, and every other block is pinned to the column so the
+        // width of one picture cannot stretch the prose around it.
+        .overflow_scrollbar().p(10)
         .on_size_change((size, cx) => {
           if (Math.abs((this.mdBox ?? 0) - size.width) < 1) return;
           this.mdBox = size.width;
@@ -1030,9 +1067,9 @@ export default class Files extends View {
         })
         .children((this.blocks ?? []).map((block, i) => {
           if (block.kind === "code") return this.codeBlock(block, i);
-          if (block.kind === "diagram") return this.diagramBlock(block, i);
+          if (block.kind === "diagram") return this.diagramBlock(block, i, cx);
           if (block.kind === "image") return this.imageBlock(block);
-          return div().id(`files-prose-${i}`).flex_none().child(
+          return div().id(`files-prose-${i}`).flex_none().w(Math.max(80, (this.mdBox ?? 320) - 20)).child(
             TextView.markdown(`files-md-${i}-${this.file.replace(/[^a-zA-Z0-9]+/g, "-")}`, block.text)
               .selectable(true).on_link_click((url, cx) => this.follow(url, cx)));
         }))))

@@ -74,10 +74,10 @@ and the corona read straight through the text.
   3.3 MB and comes down once, on first use, from its pinned release (version and sha256 checked)
   into a 7 MB binary, or is taken from a `PATH` that already has it; when it cannot be had, or a
   diagram's own colours cannot be read here, the fence stays the coloured code sheet it was with
-  one dim line saying why — the words are never the price of a missing picture. Clicking a diagram
-  opens it in a dialog that zooms in steps or under the wheel and scrolls both ways — the same
-  cached picture at a larger size, never a second render — with Esc, a click beside it, or its own
-  `✕` to close;
+  one dim line saying why — the words are never the price of a missing picture. A diagram that is
+  too wide to read where it stands zooms there, in the page: the wheel or a trackpad's pinch makes
+  it bigger, ⌥ or ⇧ with the wheel scrolls instead, a double-click or the `Fit` beside it puts it
+  back, and the page itself scrolls sideways to carry it — nothing opens over the page;
 - no mod binds a key, and the diagram renderer above is the one thing fetched from the internet:
   the mark at the left of the status bar opens the app's settings on a click; the pane header
   (`artemis-pane`), the tab strip
@@ -96,7 +96,6 @@ herdr-app check ~/.config/herdr-app/mods/artemis-tabs
 herdr-app check ~/.config/herdr-app/mods/artemis-workspace-status
 herdr-app check ~/.config/herdr-app/mods/artemis-spaces
 herdr-app check ~/.config/herdr-app/mods/artemis-files
-herdr-app check ~/.config/herdr-app/mods/artemis-files-zoom
 herdr-app check ~/.config/herdr-app/mods/artemis-files-menu
 herdr-app check ~/.config/herdr-app/mods/sysmon
 herdr-app do layout.switch --name artemis
