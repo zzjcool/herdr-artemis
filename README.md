@@ -33,7 +33,10 @@ coffee `#5f3d10` at 3.1:1. The light theme's
 `background` is `#f8eacb00`: alpha 0 keeps the terminal's own square paper from painting
 (and so keeps the pane's rounded corners), while the RGB `f8eacb` is still what the app
 answers a program's `OSC 11` with (`rgb:f8f8/eaea/cbcb`, measured) — which is how `pi`, `vim`
-and every TUI on this photograph choose their own light or dark palette.
+and every TUI on this photograph choose their own light or dark palette. Its ANSI ramp is ink
+rather than pastel for the same reason: on a `154,145,126` floor the pastel one measured 1.0–2.2:1
+(`ls`'s blue, `git`'s green, `diff`'s red all read as tinted paper), and the ink one measures
+2.5–3.7:1 — `+` green 1.86 → 2.83, `error:` red 2.03 → 3.20 on the same screen.
 
 **What it gives you**
 

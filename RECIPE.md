@@ -186,9 +186,10 @@ network strip scales against the busiest sample of its own window (at least 4 KB
 has no ceiling worth drawing against. The ticks carry no radius and no fill: they sit straight on the
 plate.
 
-**Colours** are theme `graphite` plus the root `colors` map: `canvas` `#030304`, `background`
-`#0e162133`, `surface` `#00000000`, `chrome` `#00000000`, `popover` `#0a1017`, `raised`
-`#0d141c`, `input` `#0c131a`, `hover` `#ffffff0d`, `selected` `#ffffff14`, `border`
+**Colours** are the dark theme, `themes/artemis-dark.json` — the layout itself names none: `canvas`
+`#030304`, `background` `#0e162133`, `surface` `#070b1240` (the four plates), `input`
+`#0e162152` (the pane's floor), `chrome` `#00000000`, `popover` `#0a1017`, `raised`
+`#0d141c`, `hover` `#ffffff0d`, `selected` `#ffffff14`, `border`
 `#ffffff1f`, `foreground` `#e7ecf3`, `muted` `#b7c2cd`, `dim` `#828d9c`, `accent` `#e9d8b9`,
 `accent_foreground` `#0a0c11`, `solid` `#e9d8b9` (= `accent`), `solid_foreground` `#0a0c11`
 (= `accent_foreground`), `selection`
@@ -197,6 +198,20 @@ plate.
 #c39ecf #83bfc0 #c9d2dc #3b4655 #ef9781 #bcd4ab #f2dba3 #9cc0e6 #d8b5e2 #9ed8d6 #edf2f7`
 (`ansi0`–`ansi15`). Fonts are the person's own; the layout sets none, but the clock asks for
 `settings().font_family` (else JetBrains Mono) because it is numerals.
+
+**The light half's ANSI ramp is ink, not pastel, and that is the floor's doing.** The light floor is
+`154,145,126` — a mid grey, because 62 % of a warm sheet over a black sky is a mid grey — while a
+light preset's ramp is drawn for a `240` page. Measured against that floor, the first ramp
+(`ansi1 #a83a2c` 2.03:1, `ansi2 #4a6f33` 1.86:1, `ansi9 #c44534` 1.58:1, `ansi8 #8b9199` 1.02:1)
+was a wash: `ls`'s blue, `git`'s green and `diff`'s red all read as tinted paper. The ramp is now
+`#241f19 #7d2118 #2f5320 #63430c #1f4a72 #54285c #185250 #4a4235 #4a443a #8c2a1e #2b5a22 #6f4a0d
+#26527c #5f3070 #1b5c59 #241f19`, every hue between 2.5:1 and 3.7:1 on that floor (the two inks
+5.2:1): measured before/after on the same screen, `+` green went 1.86:1 → 2.83:1 and `error:` red
+2.03:1 → 3.20:1. 3:1 is the ceiling for a hue that still reads as that hue — at 5:1 the red has to
+become `#5c1a12`, which is black with a memory of red. Program colours that are *not* ANSI are out
+of a layout's reach: `pi`'s own "Working" red measures `(205,126,122)`, 1.02:1 on the same floor,
+and only `minimum_contrast` in `settings.json` (which trades the hue for near-black or near-white)
+or a brighter veil can move it.
 
 ## How it behaves
 
