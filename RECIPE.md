@@ -26,10 +26,14 @@ ssh, no key handling, no network of the mod's own — only read-only queries run
 
 ## What you see
 
-**The window.** Root `padding` `0`, `gap` `10`, `titlebar: none`, traffic lights at `[14, 13]`,
+**The window.** Root `padding` `0`, `gap` `0`, `titlebar: none`, traffic lights at `[14, 13]`,
 theme `{"light": "artemis-light", "dark": "artemis-dark"}` — two files in `themes/`, one window;
 terminal padding `[20, 24]`, `terminal_opacity` `0`, and `background`
-`{ "image": "backgrounds/artemis.jpg", "fit": "contain" }`.
+`{ "image": "backgrounds/artemis.jpg", "fit": "contain" }`. The root has one child: a `shell`
+column (`gap` `10`, weight 1, `"background": "background"`) holding `body` and `status`. That one
+word is what makes the gutters the theme's business instead of the picture's — the light half's
+10 px gaps are its own paper (`248,234,203`), the dark half's are the same 20 % smoke the frame
+reads through (`5,8,12`). Without it the gaps are the photograph, in both halves.
 
 **Two palettes, one tree.** No colour is written in `layouts/artemis.json`. The four plates and
 the plates name `surface`, the pane's floor `input` and every hairline `border`, and each of
@@ -38,10 +42,13 @@ the plates name `surface`, the pane's floor `input` and every hairline `border`,
 tree is dark or light by the system's appearance (`settings.json` `appearance` pins one), and a
 light value never has to be expressed as a second layout. The numbers in this recipe are the
 dark half — `#070b1240`, `#0e162152`, `#0e162133`, `#ffffff1f`, `#030304` — unless a light one is
-named; the light half keeps the geometry exactly and swaps the veil for a warm `#f8eacba6` (plates),
-`#f8eacb9e` (pane floor, 62 %, which lands on `154,145,126` — 13 more red than blue), `#fff3dd59`
-(hairline) over the same photograph, its ink `#2a2115` (5.1:1 on that floor) and its accent the
-coffee `#5f3d10` (3.1:1; the dark half's sand measures 1.9:1 there and cannot be seen).
+named; the light half keeps the geometry exactly and is paper instead of glass: `background`
+`#f8eacb`, `surface` `#f2e9d8` (the four plates), `input` `#fbf4e6` (the pane's floor), `border`
+`#2a21151c` — every one of them opaque, so no photograph shows through — its ink `#2a2115`
+(13.3:1 on that paper), `muted` `#453a29` (9.3:1), `dim` `#61523c` (6.3:1), and its accent the
+coffee `#5f3d10` (8.2:1; the dark half's sand `#e9d8b9` reads on paper too, but as a highlight,
+not as an accent). `background` is also the colour the `shell` ground paints, so the light
+window's gutters and its paper are the same sheet.
 
 **The ground.** The photograph, whole: 3:2, no crop, no grade, no vignette, no fade. `contain`
 fits it inside the window and centres it. An aspect wider than 3:2 (a 16:10 window) leaves the
@@ -51,12 +58,16 @@ bars are `canvas` `#030304` — measured off the frame's own outer 8 px (mean `2
 — so the picture's edge and the window's edge are the same colour and there is no seam to see.
 What the photograph contributes: its near-black sky (mean luminance 11 of 255) with the frame's
 own stars, the Moon's disc in its left third, the corona's ring around it, and Saturn and Mars
-as two small dots to the right of the disc.
+as two small dots to the right of the disc. It contributes that to the dark half only: under the
+light theme every plate is opaque paper, the pane's floor with it, so the picture is the
+palette's source and nothing else — and the `shell`'s ground colour, not the JPG, is what shows
+between the cards.
 
 **Smoked glass.** `colors.background` is `#0e162133` — 20 % of a dark blue-grey — so every node's
 default fill is a thin smoke over the photograph rather than a hole or a slab, and the pane adds a
 32 % tint of the same colour, `"background": "#0e162152"` in `content.pane`: drawn by the frame,
-clipped to its arc. A shell pane reads (7, 10, 15) over the frame's black, and the Moon's limb, the
+clipped to its arc. A shell pane reads (8, 13, 19) over the frame's black — the pane's own 32 %
+over the `shell`'s 20 % — and the Moon's limb, the
 craters, the corona and the stars show through it, so the terminal is written on the photograph
 rather than in a box on it. `terminal_opacity` is `0`, not `0.25`: a terminal's own *paper* is one
 square rect the app draws and does not clip to the pane's radius, so at any alpha above zero it
@@ -186,7 +197,7 @@ network strip scales against the busiest sample of its own window (at least 4 KB
 has no ceiling worth drawing against. The ticks carry no radius and no fill: they sit straight on the
 plate.
 
-**Colours** are the dark theme, `themes/artemis-dark.json` — the layout itself names none: `canvas`
+**Colours** are the dark theme, `themes/artemis-dark.json` — the layout itself names four: `canvas`
 `#030304`, `background` `#0e162133`, `surface` `#070b1240` (the four plates), `input`
 `#0e162152` (the pane's floor), `chrome` `#00000000`, `popover` `#0a1017`, `raised`
 `#0d141c`, `hover` `#ffffff0d`, `selected` `#ffffff14`, `border`
@@ -199,19 +210,22 @@ plate.
 (`ansi0`–`ansi15`). Fonts are the person's own; the layout sets none, but the clock asks for
 `settings().font_family` (else JetBrains Mono) because it is numerals.
 
-**The light half's ANSI ramp is ink, not pastel, and that is the floor's doing.** The light floor is
-`154,145,126` — a mid grey, because 62 % of a warm sheet over a black sky is a mid grey — while a
-light preset's ramp is drawn for a `240` page. Measured against that floor, the first ramp
-(`ansi1 #a83a2c` 2.03:1, `ansi2 #4a6f33` 1.86:1, `ansi9 #c44534` 1.58:1, `ansi8 #8b9199` 1.02:1)
-was a wash: `ls`'s blue, `git`'s green and `diff`'s red all read as tinted paper. The ramp is now
-`#241f19 #7d2118 #2f5320 #63430c #1f4a72 #54285c #185250 #4a4235 #4a443a #8c2a1e #2b5a22 #6f4a0d
-#26527c #5f3070 #1b5c59 #241f19`, every hue between 2.5:1 and 3.7:1 on that floor (the two inks
-5.2:1): measured before/after on the same screen, `+` green went 1.86:1 → 2.83:1 and `error:` red
-2.03:1 → 3.20:1. 3:1 is the ceiling for a hue that still reads as that hue — at 5:1 the red has to
-become `#5c1a12`, which is black with a memory of red. Program colours that are *not* ANSI are out
-of a layout's reach: `pi`'s own "Working" red measures `(205,126,122)`, 1.02:1 on the same floor,
-and only `minimum_contrast` in `settings.json` (which trades the hue for near-black or near-white)
-or a brighter veil can move it.
+**The light half's ramp is pastel because its floor is paper.** The ramp is drawn for the floor it
+sits on, and that floor moved: behind 62 % of a warm sheet the light window's floor was
+`154,145,126`, a mid grey, and pastel `#a83a2c` / `#4a6f33` / `#c44534` measured 2.03:1 / 1.86:1 /
+1.58:1 on it — `ls`'s blue, `git`'s green and `diff`'s red all read as tinted paper, so that half
+carried an ink ramp instead (`+` green 2.83:1, `error:` red 3.20:1). Now the light half is opaque
+paper `#f8eacb`, and the same pastel measures 4.5–6.0:1: `ansi0 #2f2a1f` 11.97, `ansi1 #a83a2c`
+5.33, `ansi2 #4a6f33` 4.88, `ansi3 #8a6414` 4.50, `ansi4 #2f5f8f` 5.59, `ansi5 #7a4585` 5.84,
+`ansi6 #2b7472` 4.58, `ansi7 #635643` 5.99, and the eight bright slots between them. The ramp is
+therefore colour again — the ink one measures 7.4–9.6:1 on the new paper, which is legible but
+black with a memory of hue. An opaque floor is the cheapest way to get a hue back: at 3:1 the red
+has to become `#5c1a12`. Program colours that are *not* ANSI are out of a layout's reach when the
+floor is middling — `pi`'s "Working" red measured `(205,126,122)`, 1.02:1 behind the 62 % sheet,
+because `pi`'s `system` theme derives its palette from the background the terminal *reports* and
+those rules only guarantee contrast against that report. On the opaque paper the report and the
+floor are the same colour and the derivation lands where it should; a fixed TUI theme (pi's own
+`light`) is still the surest thing.
 
 ## How it behaves
 
@@ -347,7 +361,8 @@ layouts/artemis.json          the window
 layouts/artemis.svg           the picture Settings shows for this layout (root "preview")
 themes/artemis-dark.json      the dark palette: the standard names, with the plates' and the pane's
                               own values in `surface` / `input` (the layout names nothing else)
-themes/artemis-light.json     the light palette, the same names, the veil inverted
+themes/artemis-light.json     the light palette: paper instead of glass, the same names, every fill
+                              opaque
 backgrounds/artemis.jpg       the ground: the whole NASA frame, re-encoded
 mods/artemis-bar/             main.js, mod.json {"place":"none","title":"Artemis bar"} — no longer in
                               the layout (see *Top bar*); kept so the block can be put back
@@ -371,26 +386,31 @@ mods/sysmon/                  main.js, mod.json {"place":"none","title":"System 
 root  column  titlebar "none", traffic_lights [14,13],
               theme {light "artemis-light", dark "artemis-dark"}, no colors map,
               background {image "backgrounds/artemis.jpg", fit "contain"},
-              padding 0, gap 10, terminal_padding [20,24], terminal_opacity 0,
+              padding 0, gap 0, terminal_padding [20,24], terminal_opacity 0,
               preview "layouts/artemis.svg"
-├ body        row        gap 10  weight 1      (the topmost thing: no bar above it)
-│ ├ sidebar   column 292  min 220  max 420  radius 14
-│ │ │                    background "#070b1240"  border {1,"#ffffff1f"}
-│ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill; pt 26 for the lights)
-│ │ └ agents  block weight 1  min 90  mod artemis-agents  (no fill)
-│ └ work      column gap 10  resizable false
-│   ├ tabs       block 38  window_drag  radius 12  background "#070b1240"
-│   │                    border {1,"#ffffff1f"}  mod artemis-tabs
-│   └ work-body  row  gap 10
-│     ├ main  block  content {tab "active", pane {...}}
-│     └ panel column 340  min 280  max 900  hidden true  radius 14
-│              background "#070b1240"  border {1,"#ffffff1f"}
-│       └ panel-body  stack  active "files"  children: files, changes
-└ status      row 26  gap 0  resizable false  radius 10
-                       background "#070b1240"  border {1,"#ffffff1f"}
-  ├ status-workspace  block weight 1  mod artemis-workspace-status  (mark → app.settings)
-  └ status-sysmon     block 480  min 480  mod sysmon  (paints no fill)
+└ shell       column  gap 10  weight 1  background "background"   (the ground: paper in the light
+  │           half, a 20 % smoke over the picture in the dark one)
+  ├ body      row        gap 10  weight 1      (the topmost thing: no bar above it)
+  │ ├ sidebar   column 292  min 220  max 420  radius 14
+  │ │ │                    background "surface"  border {1,"border"}
+  │ │ ├ spaces  block weight 1  min 90  mod artemis-spaces   (no fill; pt 26 for the lights)
+  │ │ └ agents  block weight 1  min 90  mod artemis-agents  (no fill)
+  │ └ work      column gap 10  resizable false
+  │   ├ tabs       block 38  window_drag  radius 12  background "surface"
+  │   │                    border {1,"border"}  mod artemis-tabs
+  │   └ work-body  row  gap 10
+  │     ├ main  block  content {tab "active", pane {...}}
+  │     └ panel column 340  min 280  max 900  hidden true  radius 14
+  │              background "surface"  border {1,"border"}
+  │       └ panel-body  stack  active "files"  children: files, changes
+  └ status      row 26  gap 0  resizable false  radius 10
+                         background "surface"  border {1,"border"}
+    ├ status-workspace  block weight 1  mod artemis-workspace-status  (mark → app.settings)
+    └ status-sysmon     block 480  min 480  mod sysmon  (paints no fill)
 ```
+
+(The literal colours in the branches are the dark theme's; the layout itself writes only the
+names — `surface`, `input`, `border`, `background` — so the same tree is either half.)
 
 The pane frame is exactly
 `{"gap":10,"background":"#0e162152","radius":14,"lone":true,"border":{"width":1,"color":"#ffffff1f"},"focus":{"width":1,"color":"accent"},"header":{"content":{"mod":"artemis-pane"},"height":30,"position":"top","reveal":"always"}}`
@@ -958,18 +978,21 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   it. Measured on 0.1.15 at `0.25`, on the frame's flat black letterbox: the pane's inside and the
   14 px corner **outside** the arc both read (8, 12, 19), against (3, 4, 7) for the bare letterbox —
   the paper paints past the curve and squares the corner. At `0` it paints nothing, and the frame's
-  own fill (`#0e162152`, clipped) becomes the floor: inside (7, 10, 15), corner (3, 4, 7) — exactly
-  the letterbox, so the corner is round. 32 % is what restores the darkness the 25 % paper used to
+  own fill (`#0e162152`, clipped) becomes the floor: inside (8, 13, 19), corner (5, 8, 12) — the
+  corner is the shell's 20 % smoke over the same letterbox, so the arc still reads round, and both
+  numbers are 2–4 levels above what they were before the `shell` node existed (7, 10, 15 and
+  3, 4, 7). 32 % is what restores the darkness the 25 % paper used to
   add; a pane reads within ~2 of what `0.25` did. At any opacity above 0, a translucent paper still
   leaves a square of itself outside every arc.
-- **An `OSC 11` background is the theme background's *RGB*, even at alpha 0 — and that is what lets
-  one layout be both.** Measured on this machine, in a pane of this layout, a program asking
-  `ESC ]11;? BEL` got `rgb:0000/0000/0000` when the theme's `background` was `#00000000` and
-  `rgb:f8f8/eaea/cbcb` when it was `#f8eacb00` — same nothing painted, different answer. So the
-  light half's `background` is `#f8eacb00`: the paper paints no square (the pane's rounded corner
-  survives, see the bullet above) while `pi` still reads a light background and swaps its own
-  palette. A fully transparent `background` is therefore not a free choice — it answers *black*
-  and every TUI on the photograph goes dark-on-light.
+- **An `OSC 11` background is the theme background's *RGB*, even at alpha 0.** Measured on this
+  machine, in a pane of this layout, a program asking `ESC ]11;? BEL` got `rgb:0000/0000/0000`
+  when the theme's `background` was `#00000000` and `rgb:f8f8/eaea/cbcb` when it was `#f8eacb00` —
+  same nothing painted, different answer. A fully transparent `background` is therefore not a free
+  choice: it answers *black* and every TUI goes dark-on-light. The light theme spends alpha 0 no
+  more: its paper is opaque `#f8eacb`, so the answer a TUI derives its palette from (`rgb:f8f8/eaea/cbcb`)
+  and the floor it draws on are finally the same colour — behind 62 % of a sheet they were not, and
+  `pi` came out at 1.26:1 body text for believing the answer. The rounded pane corner that alpha 0
+  used to buy is bought by `terminal_opacity: 0` instead (see the bullet above).
 - **Only standard colour names in the layout — a name no theme defines paints magenta, silently.**
   The first version of the two-palette layout gave its own names to the three values it needed
   (`smoke`, `pane`, `hairline`, defined in `themes/artemis-*.json` only). Picking any other theme in
@@ -979,18 +1002,20 @@ python3 -c "from PIL import Image; Image.open('art002e015967.jpg').resize((4096,
   `input` (the pane's floor) and `border` (every hairline) — names every theme has, so the picker's
   own themes draw a clean window instead of a magenta one (`paper`, `catppuccin-latte`,
   `flexoki-light`, `white` and `lupine` were each picked and each drew, `errors []`).
-- **The photograph needs a translucent theme: the app paints `surface` and `chrome` over the
-  ground.** Measured by picking `paper` in the picker: the window is flat `241,241,238` and the
-  10 px gutter inside the picture's band is that same flat paper, against `182,172,151` — the
-  photograph — under `artemis-light`. Ours are translucent on purpose (`surface` 25 % dark / 65 %
-  light, `chrome` `#00000000`), which is what "smoked glass" means; a preset's are opaque, and an
-  opaque sheet over a photograph is a sheet. So a user who switches theme keeps the node tree, the
-  plates and the pane — and loses the picture. A *derived* theme keeps both, and that is what
-  `themes/artemis-latte.json` is: `catppuccin-latte` with its paper moved into `surface`/`input`
-  (`#eff1f5a6` / `#eff1f59e`), `chrome` at 0, the paper's own alpha at 0 (`#eff1f500`, so the RGB
-  still answers `OSC 11`), `canvas` left at the photograph's `#030304`, and its ink darkened —
-  latte's `#4c4f69` measures **2.7:1** on the 62 % floor (`149,151,155`), where `#262838` is 5.1:1.
-  Deriving one is a small job; picking a preset is not.
+- **A photograph needs a translucent theme, and paper does not; the app paints `surface` and
+  `chrome` over the ground.** Measured by picking `paper` in the picker: the window is flat
+  `241,241,238` and the 10 px gutter is that same flat paper, against `182,172,151` — the photograph
+  — under `artemis-light`. A preset's fills are opaque, and an opaque sheet over a photograph is a
+  sheet: a user who switches theme keeps the node tree, the plates and the pane, and loses the
+  picture. That is the trade the light half now takes on purpose, in reverse — it *is* paper, all
+  four fills opaque, and it does not want the picture behind it. The dark half keeps the glass
+  (`surface` 25 %, the pane 32 %, `chrome` `#00000000`), because on a dark ground the picture is
+  what there is to see. A *derived* theme is still how you get a different paper **and** the
+  picture, and that is what `themes/artemis-latte.json` is: `catppuccin-latte` with its paper moved
+  into `surface`/`input` (`#eff1f5a6` / `#eff1f59e`), `chrome` at 0, the paper's own alpha at 0
+  (`#eff1f500`, so the RGB still answers `OSC 11`), `canvas` left at the photograph's `#030304`, and
+  its ink darkened — latte's `#4c4f69` measures **2.7:1** on its own 65 % floor (`149,151,155`),
+  where `#262838` is 5.1:1. Deriving one is a small job; picking a preset is not.
 - **A base theme field must be `#rrggbb`; only `colors` takes alpha.** `themes/artemis-light.json`
   with `"selection": "#1b1e2326"` made the app refuse the whole layout (`themes/… : selection
   "#1b1e2326" is not #rrggbb`) and fall back to the previous one; the wash belongs in

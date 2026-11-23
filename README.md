@@ -20,31 +20,38 @@ and the corona read straight through the text.
 (`"theme": {"light": "artemis-light", "dark": "artemis-dark"}`), so the window follows
 the system's light or dark mode — no second layout file, no second node tree. Every plate
 names a colour (`surface` for the plates, `input` for the pane's floor, `border` for the
-hairlines) that the two theme files both define, so the
-light half is the same geometry with the veil inverted: a warm `#f8eacb` sheet at 62 % over the
-same photograph, its type a warm near-black ink (`#2a2115`). Warm because the veil is warm — 62 %
-of `#f8eacb` over the frame's near-black sky lands on `154,145,126` (13 more red than blue) where
-a neutral white sheet lands on `153,152,149`, a grey — and that is the photograph's ceiling for
-warmth: at 62 % the red channel is already `159` for a pure-white sheet. At 62 % the picture is
-still 38 % of the floor — the Moon's disc and the corona read through the text as a pale
-watermark — and the ink reads 5.1:1 against it. `accent` is the dark half's sand there, not here:
-sand on `154,145,126` measures 1.9:1, a ring you cannot see, so the light half's accent is the
-coffee `#5f3d10` at 3.1:1. The light theme's
-`background` is `#f8eacb00`: alpha 0 keeps the terminal's own square paper from painting
-(and so keeps the pane's rounded corners), while the RGB `f8eacb` is still what the app
-answers a program's `OSC 11` with (`rgb:f8f8/eaea/cbcb`, measured) — which is how `pi`, `vim`
-and every TUI on this photograph choose their own light or dark palette. Its ANSI ramp is ink
-rather than pastel for the same reason: on a `154,145,126` floor the pastel one measured 1.0–2.2:1
-(`ls`'s blue, `git`'s green, `diff`'s red all read as tinted paper), and the ink one measures
-2.5–3.7:1 — `+` green 1.86 → 2.83, `error:` red 2.03 → 3.20 on the same screen.
+hairlines), and one `shell` node wraps body and status with `"background": "background"`, so
+the 10 px gutters are painted by the theme rather than by the picture: in the light half that
+word is the paper itself (`248,234,203`, measured), in the dark half the same 20 % smoke the
+photograph reads straight through (`5,8,12` in the gaps — the frame's own sky).
+
+**The light half is paper, and the photograph is not in it.** It used to be, behind a 62 % sheet
+(`#f8eacba6`, floor `154,145,126`), and three things cannot agree on such a floor: the picture
+(38 % of it, moving), the sheet (a mid grey, 13 more red than blue), and a program that picks its
+own colours from the background the terminal *reports*. `OSC 11` answered `rgb:f8f8/eaea/cbcb`
+while the paper actually drawn on was 154 grey — `pi` derives its whole palette from the answer and
+came out at 1.26:1 for body text and 2.07:1 for headings (measured), and the pastel ANSI ramp sat
+at 1.0–2.2:1, `ls`'s blue and `git`'s green reading as tinted paper. Opaque paper fixes the report
+and the floor at the same time: `background` `#f8eacb`, `surface` `#f2e9d8`, `input` `#fbf4e6`,
+`border` `#2a21151c`, none of them transparent — ink `#2a2115` at 13.3:1, `muted` `#453a29`
+9.3:1, `dim` `#61523c` 6.3:1, the coffee accent `#5f3d10` 8.2:1, and the ramp free to be colour
+again: the original `#a83a2c #4a6f33 #8a6414 #2f5f8f …` measures 4.5–6.0:1 on `#f8eacb` (`+` green
+4.88:1, `error:` red 5.33:1) instead of the ink ramp a darker floor forced, which is why the
+light theme is the one file that went back to pastel. The picture still sets the palette — the
+light sheet is the warm sand of the frame's sunlit limb, and `canvas` `#030304` is still measured
+off the frame's outer 8 px, the colour the letterbox is painted in, so wherever the picture stops
+the window's edge is the same near-black.
 
 **What it gives you**
 
 - the whole frame, never cropped: in a 16:10 window it fills the height with 90 px of the same near-black at
   either side (at 2880 px wide); in a tall window it is a band across the middle
-  with the same near-black above and below;
+  with the same near-black above and below — in the dark half. The light half draws no picture at
+  all: it is the palette's source, and its window is one flat `#f8eacb` sheet with cream cards on
+  it (`#f2e9d8`, `#fbf4e6`) and hairlines between;
 - rounded plates throughout: the rail, the tab strip, the pane and the status bar are
-  sheets of smoke with a 14 px corner (12 on the tab strip, 10 on the status bar), and both
+  sheets of smoke — paper in the light half — with a 14 px corner (12 on the tab strip, 10 on the
+  status bar), and both
   the frame's fill and its divider stop on the curve, so no square corner pokes out of it —
   the header band cannot be clipped that way, so `artemis-pane` paints it rounded to the
   frame's own radius instead;
@@ -113,7 +120,7 @@ rather than pastel for the same reason: on a `154,145,126` floor the pastel one 
   *Watch out* in the recipe); none of them, nor the monitor, touches the network.
 
 **Install.** Copy `layouts/`, `mods/`, `themes/` and `backgrounds/` into `~/.config/herdr-app/`
-(`backgrounds/artemis.jpg` is the ground — without it the window has no photograph),
+(`backgrounds/artemis.jpg` is the dark half's ground — without it the window has no photograph),
 check the mods, then switch:
 
 ```sh

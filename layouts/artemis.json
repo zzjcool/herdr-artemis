@@ -16,7 +16,7 @@
     "fit": "contain"
   },
   "padding": 0,
-  "gap": 10,
+  "gap": 0,
   "terminal_padding": [
     20,
     24
@@ -24,189 +24,198 @@
   "terminal_opacity": 0,
   "children": [
     {
-      "id": "body",
-      "type": "row",
+      "id": "shell",
+      "type": "column",
       "gap": 10,
+      "size": { "weight": 1 },
+      "background": "background",
       "children": [
         {
-          "id": "sidebar",
-          "type": "column",
-          "size": {
-            "px": 292
-          },
-          "min": 220,
-          "max": 420,
-          "children": [
-            {
-              "id": "spaces",
-              "type": "block",
-              "size": {
-                "weight": 1
-              },
-              "min": 90,
-              "content": {
-                "mod": "artemis-spaces"
-              }
-            },
-            {
-              "id": "agents",
-              "type": "block",
-              "size": {
-                "weight": 1
-              },
-              "min": 90,
-              "content": {
-                "mod": "artemis-agents"
-              }
-            }
-          ],
-          "background": "surface",
-          "border": {
-            "width": 1,
-            "color": "border"
-          },
-          "radius": 14
-        },
-        {
-          "id": "work",
-          "type": "column",
+          "id": "body",
+          "type": "row",
           "gap": 10,
-          "resizable": false,
           "children": [
             {
-              "id": "tabs",
-              "type": "block",
+              "id": "sidebar",
+              "type": "column",
               "size": {
-                "px": 38
+                "px": 292
               },
-              "window_drag": true,
-              "content": {
-                "mod": "artemis-tabs"
-              },
+              "min": 220,
+              "max": 420,
+              "children": [
+                {
+                  "id": "spaces",
+                  "type": "block",
+                  "size": {
+                    "weight": 1
+                  },
+                  "min": 90,
+                  "content": {
+                    "mod": "artemis-spaces"
+                  }
+                },
+                {
+                  "id": "agents",
+                  "type": "block",
+                  "size": {
+                    "weight": 1
+                  },
+                  "min": 90,
+                  "content": {
+                    "mod": "artemis-agents"
+                  }
+                }
+              ],
               "background": "surface",
               "border": {
                 "width": 1,
                 "color": "border"
               },
-              "radius": 12
+              "radius": 14
             },
             {
-              "id": "work-body",
-              "type": "row",
+              "id": "work",
+              "type": "column",
               "gap": 10,
+              "resizable": false,
               "children": [
                 {
-                  "id": "main",
+                  "id": "tabs",
                   "type": "block",
-                  "content": {
-                    "tab": "active",
-                    "pane": {
-                      "gap": 10,
-                      "background": "input",
-                      "radius": 14,
-                      "lone": true,
-                      "border": {
-                        "width": 1,
-                        "color": "border"
-                      },
-                      "focus": {
-                        "width": 1,
-                        "color": "accent"
-                      },
-                      "header": {
-                        "content": {
-                          "mod": "artemis-pane"
-                        },
-                        "height": 30,
-                        "position": "top",
-                        "reveal": "always"
-                      }
-                    }
-                  }
-                },
-                {
-                  "id": "panel",
-                  "type": "column",
-                  "hidden": true,
                   "size": {
-                    "px": 340
+                    "px": 38
                   },
-                  "min": 280,
-                  "max": 900,
-                  "children": [
-                    {
-                      "id": "panel-body",
-                      "type": "stack",
-                      "active": "files",
-                      "children": [
-                        {
-                          "id": "files",
-                          "type": "block",
-                          "content": {
-                            "mod": "artemis-files"
-                          }
-                        },
-                        {
-                          "id": "changes",
-                          "type": "block",
-                          "content": {
-                            "mod": "changes"
-                          }
-                        }
-                      ]
-                    }
-                  ],
+                  "window_drag": true,
+                  "content": {
+                    "mod": "artemis-tabs"
+                  },
                   "background": "surface",
                   "border": {
                     "width": 1,
                     "color": "border"
                   },
-                  "radius": 14
+                  "radius": 12
+                },
+                {
+                  "id": "work-body",
+                  "type": "row",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "id": "main",
+                      "type": "block",
+                      "content": {
+                        "tab": "active",
+                        "pane": {
+                          "gap": 10,
+                          "background": "input",
+                          "radius": 14,
+                          "lone": true,
+                          "border": {
+                            "width": 1,
+                            "color": "border"
+                          },
+                          "focus": {
+                            "width": 1,
+                            "color": "accent"
+                          },
+                          "header": {
+                            "content": {
+                              "mod": "artemis-pane"
+                            },
+                            "height": 30,
+                            "position": "top",
+                            "reveal": "always"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "id": "panel",
+                      "type": "column",
+                      "hidden": true,
+                      "size": {
+                        "px": 340
+                      },
+                      "min": 280,
+                      "max": 900,
+                      "children": [
+                        {
+                          "id": "panel-body",
+                          "type": "stack",
+                          "active": "files",
+                          "children": [
+                            {
+                              "id": "files",
+                              "type": "block",
+                              "content": {
+                                "mod": "artemis-files"
+                              }
+                            },
+                            {
+                              "id": "changes",
+                              "type": "block",
+                              "content": {
+                                "mod": "changes"
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "background": "surface",
+                      "border": {
+                        "width": 1,
+                        "color": "border"
+                      },
+                      "radius": 14
+                    }
+                  ]
                 }
               ]
             }
-          ]
-        }
-      ],
-      "size": {
-        "weight": 1
-      }
-    },
-    {
-      "id": "status",
-      "type": "row",
-      "size": {
-        "px": 26
-      },
-      "gap": 0,
-      "resizable": false,
-      "background": "surface",
-      "border": {
-        "width": 1,
-        "color": "border"
-      },
-      "radius": 10,
-      "children": [
-        {
-          "id": "status-workspace",
-          "type": "block",
+          ],
           "size": {
             "weight": 1
-          },
-          "content": {
-            "mod": "artemis-workspace-status"
           }
         },
         {
-          "id": "status-sysmon",
-          "type": "block",
+          "id": "status",
+          "type": "row",
           "size": {
-            "px": 480
+            "px": 26
           },
-          "min": 480,
-          "content": {
-            "mod": "sysmon"
-          }
+          "gap": 0,
+          "resizable": false,
+          "background": "surface",
+          "border": {
+            "width": 1,
+            "color": "border"
+          },
+          "radius": 10,
+          "children": [
+            {
+              "id": "status-workspace",
+              "type": "block",
+              "size": {
+                "weight": 1
+              },
+              "content": {
+                "mod": "artemis-workspace-status"
+              }
+            },
+            {
+              "id": "status-sysmon",
+              "type": "block",
+              "size": {
+                "px": 480
+              },
+              "min": 480,
+              "content": {
+                "mod": "sysmon"
+              }
+            }
+          ]
         }
       ]
     }
