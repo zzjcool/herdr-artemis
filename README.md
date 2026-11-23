@@ -15,6 +15,26 @@ tint of the same `#0e1621` (20 % on the containers, 32 % on the pane) — and th
 tint is drawn by its frame, so it stops on the corner's arc and the Moon's limb, its craters
 and the corona read straight through the text.
 
+**One layout, two appearances.** The palette lives in `themes/artemis-dark.json` and
+`themes/artemis-light.json`, and the layout's root names both
+(`"theme": {"light": "artemis-light", "dark": "artemis-dark"}`), so the window follows
+the system's light or dark mode — no second layout file, no second node tree. Every plate
+names a colour (`surface` for the plates, `input` for the pane's floor, `border` for the
+hairlines) that the two theme files both define, so the
+light half is the same geometry with the veil inverted: a warm `#f8eacb` sheet at 62 % over the
+same photograph, its type a warm near-black ink (`#2a2115`). Warm because the veil is warm — 62 %
+of `#f8eacb` over the frame's near-black sky lands on `154,145,126` (13 more red than blue) where
+a neutral white sheet lands on `153,152,149`, a grey — and that is the photograph's ceiling for
+warmth: at 62 % the red channel is already `159` for a pure-white sheet. At 62 % the picture is
+still 38 % of the floor — the Moon's disc and the corona read through the text as a pale
+watermark — and the ink reads 5.1:1 against it. `accent` is the dark half's sand there, not here:
+sand on `154,145,126` measures 1.9:1, a ring you cannot see, so the light half's accent is the
+coffee `#5f3d10` at 3.1:1. The light theme's
+`background` is `#f8eacb00`: alpha 0 keeps the terminal's own square paper from painting
+(and so keeps the pane's rounded corners), while the RGB `f8eacb` is still what the app
+answers a program's `OSC 11` with (`rgb:f8f8/eaea/cbcb`, measured) — which is how `pi`, `vim`
+and every TUI on this photograph choose their own light or dark palette.
+
 **What it gives you**
 
 - the whole frame, never cropped: in a 16:10 window it fills the height with 90 px of the same near-black at
@@ -89,7 +109,7 @@ and the corona read straight through the text.
   arrow instead of an empty box) are the shipped mods with the one thing changed that they needed here (§
   *Watch out* in the recipe); none of them, nor the monitor, touches the network.
 
-**Install.** Copy `layouts/`, `mods/` and `backgrounds/` into `~/.config/herdr-app/`
+**Install.** Copy `layouts/`, `mods/`, `themes/` and `backgrounds/` into `~/.config/herdr-app/`
 (`backgrounds/artemis.jpg` is the ground — without it the window has no photograph),
 check the mods, then switch:
 
@@ -104,6 +124,10 @@ herdr-app check ~/.config/herdr-app/mods/sysmon
 herdr-app do layout.switch --name artemis
 herdr-app status
 ```
+
+`appearance` follows the system; to pin one half, `"appearance": "light"` (or `"dark"`) in
+`settings.json`. `app.theme` does not move a layout whose `theme` is a `{light, dark}` pair —
+it wrote nothing here (measured).
 
 **[RECIPE.md](RECIPE.md)** is the brief it was built from: every size and colour,
 the node tree, the eight mods, the picture, and the things this layout cannot do.

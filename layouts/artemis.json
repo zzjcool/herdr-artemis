@@ -7,47 +7,9 @@
     13
   ],
   "preview": "layouts/artemis.svg",
-  "theme": "graphite",
-  "colors": {
-    "canvas": "#030304",
-    "background": "#0e162133",
-    "chrome": "#00000000",
-    "surface": "#00000000",
-    "popover": "#0a1017",
-    "raised": "#0d141c",
-    "hover": "#ffffff0d",
-    "selected": "#ffffff14",
-    "border": "#ffffff1f",
-    "input": "#0c131a",
-    "foreground": "#e7ecf3",
-    "muted": "#b7c2cd",
-    "dim": "#828d9c",
-    "accent": "#e9d8b9",
-    "accent_foreground": "#0a0c11",
-    "solid": "#e9d8b9",
-    "solid_foreground": "#0a0c11",
-    "selection": "#2a3a4d66",
-    "working": "#8bb3d9",
-    "blocked": "#e08a6c",
-    "done": "#d8c8a6",
-    "idle": "#5f6a78",
-    "unknown": "#47525f",
-    "ansi0": "#121821",
-    "ansi1": "#dd7a63",
-    "ansi2": "#a3bd97",
-    "ansi3": "#e3c88d",
-    "ansi4": "#7fa6cf",
-    "ansi5": "#c39ecf",
-    "ansi6": "#83bfc0",
-    "ansi7": "#c9d2dc",
-    "ansi8": "#3b4655",
-    "ansi9": "#ef9781",
-    "ansi10": "#bcd4ab",
-    "ansi11": "#f2dba3",
-    "ansi12": "#9cc0e6",
-    "ansi13": "#d8b5e2",
-    "ansi14": "#9ed8d6",
-    "ansi15": "#edf2f7"
+  "theme": {
+    "light": "artemis-light",
+    "dark": "artemis-dark"
   },
   "background": {
     "image": "backgrounds/artemis.jpg",
@@ -98,10 +60,10 @@
               }
             }
           ],
-          "background": "#070b1240",
+          "background": "surface",
           "border": {
             "width": 1,
-            "color": "#ffffff1f"
+            "color": "border"
           },
           "radius": 14
         },
@@ -121,10 +83,10 @@
               "content": {
                 "mod": "artemis-tabs"
               },
-              "background": "#070b1240",
+              "background": "surface",
               "border": {
                 "width": 1,
-                "color": "#ffffff1f"
+                "color": "border"
               },
               "radius": 12
             },
@@ -140,12 +102,12 @@
                     "tab": "active",
                     "pane": {
                       "gap": 10,
-                      "background": "#0e162152",
+                      "background": "input",
                       "radius": 14,
                       "lone": true,
                       "border": {
                         "width": 1,
-                        "color": "#ffffff1f"
+                        "color": "border"
                       },
                       "focus": {
                         "width": 1,
@@ -194,10 +156,10 @@
                       ]
                     }
                   ],
-                  "background": "#070b1240",
+                  "background": "surface",
                   "border": {
                     "width": 1,
-                    "color": "#ffffff1f"
+                    "color": "border"
                   },
                   "radius": 14
                 }
@@ -218,10 +180,10 @@
       },
       "gap": 0,
       "resizable": false,
-      "background": "#070b1240",
+      "background": "surface",
       "border": {
         "width": 1,
-        "color": "#ffffff1f"
+        "color": "border"
       },
       "radius": 10,
       "children": [
